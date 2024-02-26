@@ -1,15 +1,92 @@
 struct CPU {
     reg_a: u8,
+    reg_x: u8,
+    reg_y: u8,
     reg_pc: u16,
     memory: [u8; 0xFFFF],
+}
+
+#[derive(Debug)]
+#[allow(non_camel_case_types)]
+enum AddressingMode {
+    IMM,
+    ZP,
+    ZP_X,
+    ZP_Y,
+    ABS,
+    ABS_X,
+    ABS_Y,
+    IND_X,
+    IND_Y,
+    NONE,
 }
 
 impl CPU {
     fn new() -> Self {
         CPU {
             reg_a: 0,
+            reg_x: 0,
+            reg_y: 0,
             reg_pc: 0,
             memory: [0; 0xFFFF],
+        }
+    }
+
+    fn resolve_addressing_mode(&mut self, mode: &AddressingMode) -> u16 {
+        match mode {
+            AddressingMode::IMM => self.reg_pc,
+
+            AddressingMode::ZP => self.mem_read(self.reg_pc) as u16,
+
+            AddressingMode::ZP_X => {
+                let base_address = self.mem_read(self.reg_pc);
+                let effective_address = base_address.wrapping_add(self.reg_x) as u16;
+                effective_address
+            }
+
+            AddressingMode::ZP_Y => {
+                let base_address = self.mem_read(self.reg_pc);
+                let effective_address = base_address.wrapping_add(self.reg_y) as u16;
+                effective_address
+            }
+
+            AddressingMode::ABS => self.mem_read_u16(self.reg_pc),
+
+            AddressingMode::ABS_X => {
+                let base_address = self.mem_read_u16(self.reg_pc);
+                let effective_address = base_address.wrapping_add(self.reg_x as u16);
+                effective_address
+            }
+
+            AddressingMode::ABS_Y => {
+                let base_address = self.mem_read_u16(self.reg_pc);
+                let effective_address = base_address.wrapping_add(self.reg_y as u16);
+                effective_address
+            }
+
+            AddressingMode::IND_X => {
+                // IND, X -> Construct the address, then use it to reference
+                // the memory location to load data from.
+                let base_address = self.mem_read(self.reg_pc).wrapping_add(self.reg_x);
+                let ll = self.mem_read(base_address as u16);
+                let hh = self.mem_read(base_address.wrapping_add(1) as u16);
+                (hh as u16) << 8 | (ll as u16)
+            }
+
+            AddressingMode::IND_Y => {
+                // IND, Y -> Similar to IND, X but Y is added after constructing
+                // the reference address.
+                let base_address = self.mem_read(self.reg_pc);
+                let ll = self.mem_read(base_address as u16);
+                let hh = self.mem_read((base_address as u8).wrapping_add(1) as u16);
+                let llhh = (hh as u16) << 8 | (ll as u16);
+                let effective_address = llhh.wrapping_add(self.reg_y as u16);
+                effective_address
+            }
+
+            AddressingMode::NONE => {
+                panic!("Addressing mode {:?} not supported", mode);
+            }
         }
     }
 
