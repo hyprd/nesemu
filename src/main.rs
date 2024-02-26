@@ -1,2 +1,4 @@
+mod cpu;
+
 fn main() {
 }
