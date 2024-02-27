@@ -148,15 +148,16 @@ impl CPU {
                     return;
                 }
                 0xA9 => {
-                    let immediate = self.memory[self.reg_pc as usize];
+                    self.lda(&AddressingMode::IMM);
                     self.reg_pc += 1;
-                    self.lda(immediate);
                 }
                 0xAA..=u8::MAX => {}
             }
         }
     }
-    fn lda(&mut self, value: u8) {
+    fn lda(&mut self, mode: &AddressingMode) {
+        let address = self.resolve_addressing_mode(mode);
+        let value = self.mem_read(address);
         self.reg_a = value;
     }
 }
