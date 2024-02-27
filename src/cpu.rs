@@ -18,6 +18,9 @@ enum AddressingMode {
     ABS_Y,
     IND_X,
     IND_Y,
+    ACC,
+    REL,
+    IMP,
     NONE,
 }
 
@@ -84,6 +87,16 @@ impl CPU {
                 effective_address
             }
 
+            AddressingMode::ACC => self.reg_a as u16,
+
+            AddressingMode::IMP => {
+                panic!("Implement implied addressing");
+            }
+
+            AddressingMode::REL => {
+                panic!("Implement relative addressing");
+            }
+
             AddressingMode::NONE => {
                 panic!("Addressing mode {:?} not supported", mode);
             }
@@ -118,6 +131,8 @@ impl CPU {
 
     fn reset(&mut self) {
         self.reg_a = 0;
+        self.reg_x = 0;
+        self.reg_y = 0;
         self.reg_pc = self.mem_read_u16(0xFFFC);
     }
 
