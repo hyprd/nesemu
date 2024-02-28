@@ -43,28 +43,24 @@ impl CPU {
 
             AddressingMode::ZP_X => {
                 let base_address = self.mem_read(self.reg_pc);
-                let effective_address = base_address.wrapping_add(self.reg_x) as u16;
-                effective_address
+                base_address.wrapping_add(self.reg_x) as u16
             }
 
             AddressingMode::ZP_Y => {
                 let base_address = self.mem_read(self.reg_pc);
-                let effective_address = base_address.wrapping_add(self.reg_y) as u16;
-                effective_address
+                base_address.wrapping_add(self.reg_y) as u16
             }
 
             AddressingMode::ABS => self.mem_read_u16(self.reg_pc),
 
             AddressingMode::ABS_X => {
                 let base_address = self.mem_read_u16(self.reg_pc);
-                let effective_address = base_address.wrapping_add(self.reg_x as u16);
-                effective_address
+                base_address.wrapping_add(self.reg_x as u16)
             }
 
             AddressingMode::ABS_Y => {
                 let base_address = self.mem_read_u16(self.reg_pc);
-                let effective_address = base_address.wrapping_add(self.reg_y as u16);
-                effective_address
+                base_address.wrapping_add(self.reg_y as u16)
             }
 
             AddressingMode::IND_X => {
@@ -81,10 +77,9 @@ impl CPU {
                 // the reference address.
                 let base_address = self.mem_read(self.reg_pc);
                 let ll = self.mem_read(base_address as u16);
-                let hh = self.mem_read((base_address as u8).wrapping_add(1) as u16);
+                let hh = self.mem_read(base_address.wrapping_add(1) as u16);
                 let llhh = (hh as u16) << 8 | (ll as u16);
-                let effective_address = llhh.wrapping_add(self.reg_y as u16);
-                effective_address
+                llhh.wrapping_add(self.reg_y as u16)
             }
 
             AddressingMode::ACC => self.reg_a as u16,
@@ -113,7 +108,7 @@ impl CPU {
         // LL, HH are 6502 mnemonics
         let ll = self.mem_read(addr) as u16;
         let hh = self.mem_read(addr + 1) as u16;
-        (hh << 8) | (ll as u16)
+        (hh << 8) | ll
     }
 
     // Reading a word is done in little-endian format
