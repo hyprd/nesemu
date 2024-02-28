@@ -8,7 +8,7 @@ struct CPU {
 
 #[derive(Debug)]
 #[allow(non_camel_case_types)]
-enum AddressingMode {
+pub enum AddressingMode {
     IMM,
     ZP,
     ZP_X,
