@@ -2,14 +2,14 @@ use crate::cpu::AddressingMode;
 
 pub struct Opcode {
     pub instruction: u8,
-    pub mnemonic: u8,
+    pub mnemonic: &'static str,
     pub length: u8,
     pub cycles: u8,
-    pub addressing_mode: u8,
+    pub addressing_mode: AddressingMode,
 }
 
 impl Opcode {
-    fn new(i: u8, m: str, l: u8, c: u8, a_m: AddressingMode) -> Self {
+    fn new(i: u8, m: &'static str, l: u8, c: u8, a_m: AddressingMode) -> Self {
         Opcode {
             instruction: i,
             mnemonic: m,
