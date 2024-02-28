@@ -21,7 +21,6 @@ pub enum AddressingMode {
     ACC,
     REL,
     IMP,
-    NONE,
 }
 
 impl CPU {
@@ -90,10 +89,6 @@ impl CPU {
 
             AddressingMode::REL => {
                 panic!("Implement relative addressing");
-            }
-
-            AddressingMode::NONE => {
-                panic!("Addressing mode {:?} not supported", mode);
             }
         }
     }
