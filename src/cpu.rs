@@ -6,6 +6,8 @@ struct CPU {
     reg_x: u8,
     reg_y: u8,
     reg_pc: u16,
+    reg_sp: u8,
+    reg_status: StatusFlags,
     memory: [u8; 0xFFFF],
 }
 
@@ -26,6 +28,21 @@ pub enum AddressingMode {
     IMP,
 }
 
+const STACK_HEAD: u16 = 0x0100;
+
+bitflags! {
+    struct StatusFlags: u8 {
+        const CARRY = 0b00000001;
+        const ZERO = 0b00000010;
+        const INTERRUPT_MASK = 0b00000100;
+        const DECIMAL = 0b00001000;
+        const BREAK = 0b00010000;
+        const BREAK_2 = 0b00100000;
+        const OVERFLOW = 0b01000000;
+        const NEGATIVE = 0b10000000;
+    }
+}
+
 impl CPU {
     fn new() -> Self {
         CPU {
@@ -33,6 +50,8 @@ impl CPU {
             reg_x: 0,
             reg_y: 0,
             reg_pc: 0,
+            reg_sp: 0xFD,
+            reg_status: StatusFlags::from_bits_truncate(0b100100),
             memory: [0; 0xFFFF],
         }
     }
@@ -126,7 +145,10 @@ impl CPU {
         self.reg_a = 0;
         self.reg_x = 0;
         self.reg_y = 0;
+        self.reg_sp = 0xFD;
+        self.reg_status =  StatusFlags::from_bits_truncate(0b100100);
         self.reg_pc = self.mem_read_u16(0xFFFC);
+
     }
 
     // Load program from PRG ROM
@@ -240,7 +262,9 @@ impl CPU {
         self.reg_a = value;
     }
 
-    fn ldx(&mut self, mode: &AddressingMode) {}
+    fn ldx(&mut self, mode: &AddressingMode) {
+
+    }
     fn ldy(&mut self, mode: &AddressingMode) {}
     fn sta(&mut self, mode: &AddressingMode) {}
     fn stx(&mut self, mode: &AddressingMode) {}
