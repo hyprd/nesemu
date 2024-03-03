@@ -1,3 +1,5 @@
+use bitflags::Flags;
+
 use crate::opcodes;
 use std::collections::HashMap;
 
@@ -332,10 +334,104 @@ impl CPU {
     fn php(&mut self) {}
     fn pla(&mut self) {}
     fn plp(&mut self) {}
-    fn asl(&mut self, _mode: &AddressingMode) {}
-    fn lsr(&mut self, _mode: &AddressingMode) {}
-    fn rol(&mut self, _mode: &AddressingMode) {}
-    fn ror(&mut self, _mode: &AddressingMode) {}
+    fn asl_a(&mut self) {
+        let mut value = self.reg_a;
+        if value >> 7 == 1 {
+            self.reg_status.insert(StatusFlags::CARRY);
+        } else {
+            self.reg_status.insert(StatusFlags::CARRY);
+        }
+        self.reg_a <<= 1;
+    }
+    fn asl(&mut self, mode: &AddressingMode) {
+        let address = self.resolve_addressing_mode(mode);
+        let mut value = self.mem_read(address);
+        if value >> 7 == 1 {
+            self.reg_status.insert(StatusFlags::CARRY);
+        } else {
+            self.reg_status.remove(StatusFlags::CARRY);
+        }
+        value <<= 1;
+        self.mem_write(address, value);
+        self.handle_flags_z_n(value);
+    }
+    fn lsr_a(&mut self) {
+        let mut value = self.reg_a;
+        if value & 0x01 == 1 {
+            self.reg_status.insert(StatusFlags::CARRY);
+        } else {
+            self.reg_status.remove(StatusFlags::CARRY);
+        }
+        self.reg_a >>= 1;
+    }
+    fn lsr(&mut self, mode: &AddressingMode) {
+        let address = self.resolve_addressing_mode(mode);
+        let value = self.mem_read(address);
+        if value & 0x01 == 1 {
+            self.reg_status.insert(StatusFlags::CARRY);
+        } else {
+            self.reg_status.remove(StatusFlags::CARRY);
+        }
+    }
+    fn rol_a(&mut self) {
+        let mut value = self.reg_a;
+        let carry_flag = self.reg_status.contains(StatusFlags::CARRY);
+        if value >> 7 == 1 {
+            self.reg_status.insert(StatusFlags::CARRY);
+        } else {
+            self.reg_status.remove(StatusFlags::CARRY);
+        }
+        if carry_flag {
+            value |= 0x01;
+        }
+        self.reg_a = value;
+    }
+    fn rol(&mut self, mode: &AddressingMode) {
+        let address = self.resolve_addressing_mode(mode);
+        let mut value = self.mem_read(address);
+        let carry_flag = self.reg_status.contains(StatusFlags::CARRY);
+        if value >> 7 == 1 {
+            self.reg_status.insert(StatusFlags::CARRY);
+        } else {
+            self.reg_status.remove(StatusFlags::CARRY);
+        }
+        value <<= 1;
+        if carry_flag {
+            value |= 1;
+        }
+        self.mem_write(address, value);
+        self.handle_flags_z_n(value);
+    }
+    fn ror_a(&mut self) {
+        let mut value = self.reg_a;
+        let carry_flag = self.reg_status.contains(StatusFlags::CARRY);
+        if value & 0x01 == 1 {
+            self.reg_status.insert(StatusFlags::CARRY);
+        } else {
+            self.reg_status.remove(StatusFlags::CARRY);
+        }
+        value >>= 1;
+        if carry_flag {
+            value |= 0b10000000;
+        }
+        self.reg_a = value;
+    }
+    fn ror(&mut self, mode: &AddressingMode) {
+        let address = self.resolve_addressing_mode(mode);
+        let mut value = self.mem_read(address);
+        let carry_flag = self.reg_status.contains(StatusFlags::CARRY);
+        if value & 0x01 == 1 {
+            self.reg_status.insert(StatusFlags::CARRY);
+        } else {
+            self.reg_status.remove(StatusFlags::CARRY);
+        }
+        value >>= 1;
+        if carry_flag {
+            value |= 0b10000000;
+        }
+        self.mem_write(address, value);
+        self.handle_flags_z_n(value);
+    }
     fn and(&mut self, _mode: &AddressingMode) {}
     fn bit(&mut self, _mode: &AddressingMode) {}
     fn eor(&mut self, _mode: &AddressingMode) {}
