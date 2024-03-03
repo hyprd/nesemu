@@ -432,10 +432,36 @@ impl CPU {
         self.mem_write(address, value);
         self.handle_flags_z_n(value);
     }
-    fn and(&mut self, _mode: &AddressingMode) {}
-    fn bit(&mut self, _mode: &AddressingMode) {}
-    fn eor(&mut self, _mode: &AddressingMode) {}
-    fn ora(&mut self, _mode: &AddressingMode) {}
+    fn and(&mut self, mode: &AddressingMode) {
+        let address = self.resolve_addressing_mode(mode);
+        let value = self.mem_read(address);
+        self.reg_a &= value;
+    }
+    fn bit(&mut self, mode: &AddressingMode) {
+        let address = self.resolve_addressing_mode(mode);
+        let value = self.mem_read(address);
+        if self.reg_a & value == 0 {
+            self.reg_status.insert(StatusFlags::ZERO);
+        } else {
+            self.reg_status.remove(StatusFlags::ZERO);
+        }
+        // if bit 7 is set in value, set in reg_status
+        self.reg_status
+            .set(StatusFlags::NEGATIVE, value & 0b10000000 > 0);
+        // if bit 6 is set in value, set in reg_status
+        self.reg_status
+            .set(StatusFlags::OVERFLOW, value & 0b01000000 > 0);
+    }
+    fn eor(&mut self, mode: &AddressingMode) {
+        let address = self.resolve_addressing_mode(mode);
+        let value = self.mem_read(address);
+        self.reg_a ^= value;
+    }
+    fn ora(&mut self, mode: &AddressingMode) {
+        let address = self.resolve_addressing_mode(mode);
+        let value = self.mem_read(address);
+        self.reg_a |= value;
+    }
     fn adc(&mut self, _mode: &AddressingMode) {}
     fn cmp(&mut self, _mode: &AddressingMode) {}
     fn cpx(&mut self, _mode: &AddressingMode) {}
