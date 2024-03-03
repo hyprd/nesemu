@@ -28,7 +28,7 @@ pub enum AddressingMode {
     IMP,
 }
 
-const _STACK_HEAD: u16 = 0x0100;
+const STACK: u16 = 0x0100;
 
 bitflags! {
     struct StatusFlags: u8 {
@@ -144,6 +144,29 @@ impl CPU {
         self.mem_load_prg(cart);
         self.reset();
         self.execute();
+    }
+
+    // Stack grows DOWNWARD in 6502 (and variants).
+    fn stack_push(&mut self, value: u8) {
+        self.mem_write((STACK as u16) + (self.reg_sp as u16), value);
+        self.reg_sp = self.reg_sp.wrapping_sub(1);
+    }
+
+    fn stack_push_u16(&mut self, value: u16) {
+        let hh = (value >> 8) as u8;
+        let ll = (value & 0xFF) as u8;
+        self.stack_push(hh);
+        self.stack_push(ll);
+    }
+
+    fn stack_pop(&mut self) -> u8 {
+        self.reg_sp = self.reg_sp.wrapping_add(1);
+        self.mem_read((STACK as u16) + (self.reg_sp as u16))
+    }
+
+    fn stack_pop_u16(&mut self) {
+        self.stack_pop();
+        self.stack_pop();
     }
     fn execute(&mut self) {
         let ref jmp_table: HashMap<u8, &'static opcodes::Opcode> = *opcodes::OPCODES_JMP_TABLE;
