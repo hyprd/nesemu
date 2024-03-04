@@ -277,6 +277,16 @@ impl CPU {
             self.reg_status.remove(StatusFlags::NEGATIVE);
         }
     }
+    // Test the condition of a given flag. If set, branch
+    // the PC to a signed value relative of the PC itself.
+    // (-127 ~ +128 bytes after the branch instruction).
+    fn branch(&mut self, flag_set: bool) {
+        if flag_set {
+            let jump_offset = self.mem_read(self.reg_pc) as i8;
+            let address = self.reg_pc.wrapping_add(1).wrapping_add(jump_offset as u16);
+            self.reg_pc = address;
+        }
+    }
 
     fn lda(&mut self, mode: &AddressingMode) {
         let address = self.resolve_addressing_mode(mode);
@@ -582,14 +592,30 @@ impl CPU {
     }
     fn rti(&mut self) {}
     fn rts(&mut self) {}
-    fn bcc(&mut self) {}
-    fn bcs(&mut self) {}
-    fn beq(&mut self) {}
-    fn bmi(&mut self) {}
-    fn bne(&mut self) {}
-    fn bpl(&mut self) {}
-    fn bvc(&mut self) {}
-    fn bvs(&mut self) {}
+    fn bcc(&mut self) {
+        self.branch(!self.reg_status.contains(StatusFlags::CARRY));
+    }
+    fn bcs(&mut self) {
+        self.branch(self.reg_status.contains(StatusFlags::CARRY));
+    }
+    fn beq(&mut self) {
+        self.branch(self.reg_status.contains(StatusFlags::ZERO));
+    }
+    fn bne(&mut self) {
+        self.branch(!self.reg_status.contains(StatusFlags::ZERO));
+    }
+    fn bmi(&mut self) {
+        self.branch(self.reg_status.contains(StatusFlags::NEGATIVE));
+    }
+    fn bpl(&mut self) {
+        self.branch(!self.reg_status.contains(StatusFlags::NEGATIVE));
+    }
+    fn bvc(&mut self) {
+        self.branch(!self.reg_status.contains(StatusFlags::OVERFLOW));
+    }
+    fn bvs(&mut self) {
+        self.branch(self.reg_status.contains(StatusFlags::OVERFLOW));
+    }
     fn clc(&mut self) {}
     fn cld(&mut self) {}
     fn cli(&mut self) {}
