@@ -616,13 +616,27 @@ impl CPU {
     fn bvs(&mut self) {
         self.branch(self.reg_status.contains(StatusFlags::OVERFLOW));
     }
-    fn clc(&mut self) {}
-    fn cld(&mut self) {}
-    fn cli(&mut self) {}
-    fn clv(&mut self) {}
-    fn sec(&mut self) {}
-    fn sed(&mut self) {}
-    fn sei(&mut self) {}
+    fn clc(&mut self) {
+        self.reg_status.remove(StatusFlags::CARRY);
+    }
+    fn cld(&mut self) {
+        self.reg_status.remove(StatusFlags::DECIMAL);
+    }
+    fn cli(&mut self) {
+        self.reg_status.remove(StatusFlags::INTERRUPT_MASK);
+    }
+    fn clv(&mut self) {
+        self.reg_status.remove(StatusFlags::OVERFLOW);
+    }
+    fn sec(&mut self) {
+        self.reg_status.insert(StatusFlags::CARRY);
+    }
+    fn sed(&mut self) {
+        self.reg_status.insert(StatusFlags::DECIMAL);
+    }
+    fn sei(&mut self) {
+        self.reg_status.insert(StatusFlags::INTERRUPT_MASK);
+    }
     fn nop(&mut self) {}
 }
 #[cfg(test)]
