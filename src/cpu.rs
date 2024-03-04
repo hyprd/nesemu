@@ -462,12 +462,25 @@ impl CPU {
         let value = self.mem_read(address);
         self.reg_a |= value;
     }
-    fn adc(&mut self, _mode: &AddressingMode) {}
-    fn cmp(&mut self, _mode: &AddressingMode) {}
-    fn cpx(&mut self, _mode: &AddressingMode) {}
-    fn cpy(&mut self, _mode: &AddressingMode) {}
-    fn sbc(&mut self, _mode: &AddressingMode) {}
-    fn dec(&mut self, _mode: &AddressingMode) {}
+    fn cmp(&mut self, mode: &AddressingMode, compare: u8) {
+        let address = self.resolve_addressing_mode(mode);
+        let value = self.mem_read(address);
+        if value <= compare {
+            self.reg_status.insert(StatusFlags::CARRY);
+        } else {
+            self.reg_status.remove(StatusFlags::CARRY)
+        }
+        self.handle_flags_z_n(compare.wrapping_sub(value));
+    }
+    fn cpx(&mut self, mode: &AddressingMode) {
+        self.cmp(mode, self.reg_x);
+    }
+    fn cpy(&mut self, mode: &AddresjsingMode) {
+        self.cmp(mode, self.reg_y);
+    }
+    fn adc(&mut self, mode: &AddressingMode) {}
+    fn sbc(&mut self, mode: &AddressingMode) {}
+    fn dec(&mut self, mode: &AddressingMode) {}
     fn dex(&mut self) {}
     fn dey(&mut self) {}
     fn inc(&mut self, _mode: &AddressingMode) {}
