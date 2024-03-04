@@ -216,7 +216,7 @@ impl CPU {
                     self.adc(&instruction.addressing_mode)
                 }
                 0xC9 | 0xCD | 0xDD | 0xD9 | 0xC5 | 0xD5 | 0xC1 | 0xD1 => {
-                    self.cmp(&instruction.addressing_mode)
+                    self.cmp(&instruction.addressing_mode, self.reg_a)
                 }
                 0xE0 | 0xEC | 0xE4 => self.cpx(&instruction.addressing_mode),
                 0xC0 | 0xCC | 0xC4 => self.cpy(&instruction.addressing_mode),
@@ -475,10 +475,31 @@ impl CPU {
     fn cpx(&mut self, mode: &AddressingMode) {
         self.cmp(mode, self.reg_x);
     }
-    fn cpy(&mut self, mode: &AddresjsingMode) {
+    fn cpy(&mut self, mode: &AddressingMode) {
         self.cmp(mode, self.reg_y);
     }
-    fn adc(&mut self, mode: &AddressingMode) {}
+    fn adc(&mut self, mode: &AddressingMode) {
+        let address = self.resolve_addressing_mode(mode);
+        let value = self.mem_read(address);
+        let a = self.reg_a as u16;
+        let mut carry = 0 as u16;
+        if self.reg_status.contains(StatusFlags::CARRY) {
+            carry = 1;
+        }
+        let evaluation = a ^ value as u16 ^ carry;
+        if evaluation > 0xFF {
+            self.reg_status.insert(StatusFlags::CARRY);
+        } else {
+            self.reg_status.remove(StatusFlags::CARRY);
+        }
+        // if overflows s8
+        if (value ^ (evaluation as u8)) & ((evaluation as u8) ^ self.reg_a) & 0x80 != 0 {
+            self.reg_status.insert(StatusFlags::OVERFLOW);
+        } else {
+            self.reg_status.remove(StatusFlags::OVERFLOW);
+        }
+        self.reg_a = evaluation as u8;
+    }
     fn sbc(&mut self, mode: &AddressingMode) {}
     fn dec(&mut self, mode: &AddressingMode) {}
     fn dex(&mut self) {}
