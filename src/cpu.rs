@@ -515,13 +515,39 @@ impl CPU {
         let value = self.mem_read(address) as i8;
         self.add_to_a(value.wrapping_neg().wrapping_sub(1) as u8);
     }
-    fn dec(&mut self, mode: &AddressingMode) {}
-    fn dex(&mut self) {}
-    fn dey(&mut self) {}
-    fn inc(&mut self, _mode: &AddressingMode) {}
-    fn inx(&mut self) {}
-    fn iny(&mut self) {}
-    fn brk(&mut self) {}
+    fn dec(&mut self, mode: &AddressingMode) {
+        let address = self.resolve_addressing_mode(mode);
+        let mut value = self.mem_read(address);
+        value = value.wrapping_sub(1);
+        self.mem_write(address, value);
+        self.handle_flags_z_n(value);
+    }
+    fn dex(&mut self) {
+        self.reg_x = self.reg_x.wrapping_sub(1);
+        self.handle_flags_z_n(self.reg_x);
+    }
+    fn dey(&mut self) {
+        self.reg_y = self.reg_y.wrapping_sub(1);
+        self.handle_flags_z_n(self.reg_y);
+    }
+    fn inc(&mut self, mode: &AddressingMode) {
+        let address = self.resolve_addressing_mode(mode);
+        let mut value = self.mem_read(address);
+        value = value.wrapping_add(1);
+        self.mem_write(address, value);
+        self.handle_flags_z_n(value);
+    }
+    fn inx(&mut self) {
+        self.reg_x = self.reg_x.wrapping_add(1);
+        self.handle_flags_z_n(self.reg_x);
+    }
+    fn iny(&mut self) {
+        self.reg_y = self.reg_y.wrapping_add(1);
+        self.handle_flags_z_n(self.reg_y);
+    }
+    fn brk(&mut self) {
+        return;
+    }
     fn jmp(&mut self, _mode: &AddressingMode) {}
     fn jsr(&mut self) {}
     fn rti(&mut self) {}
