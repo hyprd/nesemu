@@ -1,4 +1,4 @@
-use bitflags::Flags;
+#![allow(warnings)]
 
 use crate::opcodes;
 use std::collections::HashMap;
@@ -233,7 +233,8 @@ impl CPU {
                     self.brk();
                     break;
                 }
-                0x4C | 0x6C => self.jmp(&instruction.addressing_mode),
+                0x4C => self.reg_pc = self.mem_read_u16(self.reg_pc), // JMP ABS
+                0x6C => self.jmp(),
                 0x20 => self.jsr(),
                 0x40 => self.rti(),
                 0x60 => self.rts(),
@@ -297,7 +298,6 @@ impl CPU {
     }
     fn sta(&mut self, mode: &AddressingMode) {
         let address = self.resolve_addressing_mode(mode);
-        println!("[STA ADDRESS {:#02x?} REG A {:?}]", address, self.reg_a);
         self.mem_write(address, self.reg_a);
     }
     fn stx(&mut self, mode: &AddressingMode) {
@@ -339,7 +339,7 @@ impl CPU {
         if value >> 7 == 1 {
             self.reg_status.insert(StatusFlags::CARRY);
         } else {
-            self.reg_status.insert(StatusFlags::CARRY);
+            self.reg_status.remove(StatusFlags::CARRY);
         }
         self.reg_a <<= 1;
     }
@@ -545,11 +545,41 @@ impl CPU {
         self.reg_y = self.reg_y.wrapping_add(1);
         self.handle_flags_z_n(self.reg_y);
     }
-    fn brk(&mut self) {
-        return;
+    fn brk(&mut self) {}
+    fn jmp(&mut self) {
+        // Implementation of JMP IND.
+        //
+        // The 6502 has a bug (or feature) where wrapping the LSB
+        // doesn't increment the MSB. This is because a 6502 cannot
+        // do increments of 16-bit values within a single cycle.
+        //
+        // Indirect jumps must never use a vector beginning on the
+        // last byte of a page.
+        //
+        // For example:
+        // - 0x3000 = 0x40
+        // - 0x30FF = 0x80
+        // - 0x3100 = 0x50
+        //
+        // The result of JMP (0x30FF) will transfer control to 0x4080
+        // rather than 0x5080 as expected.
+        //
+        let address = self.mem_read_u16(self.reg_pc);
+        if address & 0x00FF == 0x00FF {
+            let ll = self.mem_read(address) as u16;
+            let hh = self.mem_read(address & 0xFF00) as u16;
+            self.reg_pc = (hh << 8) | ll;
+        } else {
+            self.reg_pc = self.mem_read_u16(address);
+        }
     }
-    fn jmp(&mut self, _mode: &AddressingMode) {}
-    fn jsr(&mut self) {}
+    fn jsr(&mut self) {
+        // Return pointer on the stack to return to regular control flow
+        // after the soubroutine is executed.
+        self.stack_push_u16(self.reg_pc + 1);
+        let address = self.mem_read_u16(self.reg_pc);
+        self.reg_pc = address;
+    }
     fn rti(&mut self) {}
     fn rts(&mut self) {}
     fn bcc(&mut self) {}
