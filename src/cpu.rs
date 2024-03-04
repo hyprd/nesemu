@@ -478,9 +478,12 @@ impl CPU {
     fn cpy(&mut self, mode: &AddressingMode) {
         self.cmp(mode, self.reg_y);
     }
-    fn adc(&mut self, mode: &AddressingMode) {
-        let address = self.resolve_addressing_mode(mode);
-        let value = self.mem_read(address);
+
+    // ADC can also be used for SBC operations as:
+    //  -> A - B = A + (-B).
+    //  -> -B = !B + 1
+    // This is a generic function both operations can use.
+    fn add_to_a(&mut self, value: u8) {
         let a = self.reg_a as u16;
         let mut carry = 0 as u16;
         if self.reg_status.contains(StatusFlags::CARRY) {
@@ -500,7 +503,18 @@ impl CPU {
         }
         self.reg_a = evaluation as u8;
     }
-    fn sbc(&mut self, mode: &AddressingMode) {}
+
+    fn adc(&mut self, mode: &AddressingMode) {
+        let address = self.resolve_addressing_mode(mode);
+        let value = self.mem_read(address);
+        self.add_to_a(value);
+    }
+
+    fn sbc(&mut self, mode: &AddressingMode) {
+        let address = self.resolve_addressing_mode(mode);
+        let value = self.mem_read(address) as i8;
+        self.add_to_a(value.wrapping_neg().wrapping_sub(1) as u8);
+    }
     fn dec(&mut self, mode: &AddressingMode) {}
     fn dex(&mut self) {}
     fn dey(&mut self) {}
