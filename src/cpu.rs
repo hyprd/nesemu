@@ -33,6 +33,7 @@ pub enum AddressingMode {
 const STACK: u16 = 0x0100;
 
 bitflags! {
+    #[derive(Clone)]
     struct StatusFlags: u8 {
         const CARRY = 0b00000001;
         const ZERO = 0b00000010;
@@ -341,10 +342,23 @@ impl CPU {
     fn tya(&mut self) {
         self.reg_a = self.reg_y;
     }
-    fn pha(&mut self) {}
-    fn php(&mut self) {}
-    fn pla(&mut self) {}
-    fn plp(&mut self) {}
+    fn pha(&mut self) {
+        self.stack_push(self.reg_a);
+    }
+    fn php(&mut self) {
+        let mut flags = self.reg_status.clone();
+        flags.insert(StatusFlags::BREAK);
+        flags.insert(StatusFlags::BREAK_2);
+        self.stack_push(flags.bits());
+    }
+    fn pla(&mut self) {
+        let accumulator_value = self.stack_pop();
+        self.reg_a = accumulator_value;
+    }
+    fn plp(&mut self) {
+        let status_value = self.stack_pop();
+        self.reg_status = CPU::dec_to_flags(status_value);
+    }
     fn asl_a(&mut self) {
         let mut value = self.reg_a;
         if value >> 7 == 1 {
