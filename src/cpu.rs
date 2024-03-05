@@ -166,9 +166,10 @@ impl CPU {
         self.mem_read((STACK as u16) + (self.reg_sp as u16))
     }
 
-    fn stack_pop_u16(&mut self) {
-        self.stack_pop();
-        self.stack_pop();
+    fn stack_pop_u16(&mut self) -> u16 {
+        let hh = self.stack_pop() as u16;
+        let ll = self.stack_pop() as u16;
+        hh << 8 | ll
     }
     fn execute(&mut self) {
         let ref jmp_table: HashMap<u8, &'static opcodes::Opcode> = *opcodes::OPCODES_JMP_TABLE;
@@ -590,8 +591,19 @@ impl CPU {
         let address = self.mem_read_u16(self.reg_pc);
         self.reg_pc = address;
     }
-    fn rti(&mut self) {}
-    fn rts(&mut self) {}
+    fn dec_to_flags(value: u8) -> StatusFlags {
+        StatusFlags::from_bits_truncate(value)
+    }
+    fn rti(&mut self) {
+        let flags = self.stack_pop();
+        self.reg_status = CPU::dec_to_flags(flags);
+        self.reg_status.remove(StatusFlags::BREAK);
+        self.reg_status.insert(StatusFlags::BREAK_2);
+        self.reg_pc = self.stack_pop_u16();
+    }
+    fn rts(&mut self) {
+        self.reg_pc = self.stack_pop_u16() + 1;
+    }
     fn bcc(&mut self) {
         self.branch(!self.reg_status.contains(StatusFlags::CARRY));
     }
