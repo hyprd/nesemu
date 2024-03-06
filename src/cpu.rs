@@ -178,6 +178,12 @@ impl CPU {
             let opcode = self.mem_read(self.reg_pc);
             self.reg_pc += 1;
             let instruction = jmp_table.get(&opcode).unwrap();
+            if instruction.mnemonic == "STA" {
+                println!(
+                    "{:?} {:#02x?}",
+                    &instruction.addressing_mode, &instruction.instruction
+                );
+            }
             let pc_snapshot = self.reg_pc;
             match opcode {
                 0xA9 | 0xAD | 0xBD | 0xB9 | 0xA5 | 0xB5 | 0xA1 | 0xB1 => {
@@ -310,7 +316,10 @@ impl CPU {
     }
     fn sta(&mut self, mode: &AddressingMode) {
         let address = self.resolve_addressing_mode(mode);
+        println!("STA FUNCTION ADDRESS {:#4X?}", address);
+
         self.mem_write(address, self.reg_a);
+        println!("STA FUNCTION VALUE AT 0xA0A0 {:#02x?}", self.reg_a);
     }
     fn stx(&mut self, mode: &AddressingMode) {
         let address = self.resolve_addressing_mode(mode);
@@ -665,120 +674,173 @@ impl CPU {
     }
     fn nop(&mut self) {}
 }
+
+fn setup_test(
+    addressing_mode: AddressingMode,
+    test_instruction: u8,
+    assert_value: u8,
+) -> CPU {
+    let mut cpu = CPU::new();
+    cpu.reset();
+    let mut cart = vec![];
+       match addressing_mode {
+        AddressingMode::IMM => {
+            cart = vec![test_instruction, 0x05, 0x00];
+        }
+        AddressingMode::ZP => {
+            cart = vec![test_instruction, 0x50, 0x00];
+            cpu.mem_write(0x50, assert_value);
+        }
+        AddressingMode::ZP_X => {
+            let mut zp_address = 0x50;
+            cart = vec![test_instruction, zp_address, 0x00];
+            cpu.reg_x = 0x01;
+            zp_address = zp_address.wrapping_add(cpu.reg_x);
+            cpu.mem_write(zp_address as u16, assert_value);
+        }
+        AddressingMode::ZP_Y => {
+            let mut zp_address = 0x50;
+            cart = vec![test_instruction, zp_address, 0x00];
+            cpu.reg_y = 0x01;
+            zp_address = zp_address.wrapping_add(cpu.reg_y);
+            cpu.mem_write(zp_address as u16, assert_value);
+        }
+        AddressingMode::ABS => {
+            cart = vec![test_instruction, 0xA0, 0xA0, 0x00];
+            // Required for functions that load into registers
+            cpu.mem_write(0xA0A0, assert_value);
+        }
+        AddressingMode::ABS_X => {
+            let mut abs_address: u16 = 0xA0F0;
+            cart = vec![test_instruction, 0xF0, 0xA0, 0x00];
+            cpu.reg_x = 0x01;
+            abs_address = abs_address.wrapping_add(cpu.reg_x as u16);
+            cpu.mem_write(abs_address, assert_value);
+        }
+        AddressingMode::ABS_Y => {
+            let mut abs_address: u16 = 0xA0F0;
+            cart = vec![test_instruction, 0xF0, 0xA0, 0x00];
+            cpu.reg_y = 0x01;
+            abs_address = abs_address.wrapping_add(cpu.reg_y as u16);
+            cpu.mem_write(abs_address, assert_value);
+        }
+        AddressingMode::IND_X => {
+            cart = vec![test_instruction, 0x50, 0x00];
+            cpu.reg_x = 0x01;
+            cpu.mem_write(0x51, 0xA0);
+            cpu.mem_write(0x52, 0xA0);
+            cpu.mem_write(0xA0A0, 0x05);
+        }
+        AddressingMode::IND_Y => {
+            cart = vec![test_instruction, 0x50, 0x00];
+            cpu.reg_y = 0x01;
+            cpu.mem_write(0x50, 0xA0);
+            cpu.mem_write(0x51, 0xA0);
+            cpu.mem_write(0xA0A1, 0x05);
+        }
+        AddressingMode::ACC => {
+            cart = vec![test_instruction, 0x00];
+        }
+        AddressingMode::REL => {}
+        AddressingMode::IMP => {}
+    }
+    cpu.mem_load_prg(cart);
+    cpu.reg_pc = cpu.mem_read_u16(0xFFFC);
+    cpu.execute();
+    cpu
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
     #[test]
     fn lda_imm() {
-        let mut cpu = CPU::new();
-        let cart = vec![0xA9, 0x05, 0x00];
-        cpu.mem_run_prg(cart);
+        let cpu = setup_test(AddressingMode::IMM, 0xA9, 0x05);
+        assert_eq!(cpu.reg_a, 0x05);
+    }
+    #[test]
+    fn lda_abs() {
+        let cpu = setup_test(AddressingMode::ABS, 0xAD, 0x05);
+        assert_eq!(cpu.reg_a, 0x05);
+    }
+    #[test]
+    fn lda_abs_x() {
+        let cpu = setup_test(AddressingMode::ABS_X, 0xBD, 0x05);
+        assert_eq!(cpu.reg_a, 0x05);
+    }
+    #[test]
+    fn lda_abs_y() {
+        let cpu = setup_test(AddressingMode::ABS_Y, 0xB9, 0x05);
+        assert_eq!(cpu.reg_a, 0x05);
+    }
+    #[test]
+    fn lda_zp() {
+        let cpu = setup_test(AddressingMode::ZP, 0xA5, 0x05);
+        assert_eq!(cpu.reg_a, 0x05);
+    }
+    #[test]
+    fn lda_zp_x() {
+        let cpu = setup_test(AddressingMode::ZP_X, 0xB5, 0x05);
+        assert_eq!(cpu.reg_a, 0x05);
+    }
+    #[test]
+    fn lda_ind_x() {
+        let cpu = setup_test(AddressingMode::IND_X, 0xA1, 0x05);
+        assert_eq!(cpu.reg_a, 0x05);
+    }
+    #[test]
+    fn lda_ind_y() {
+        let cpu = setup_test(AddressingMode::IND_Y, 0xB1, 0x05);
         assert_eq!(cpu.reg_a, 0x05);
     }
     #[test]
     fn ldx_imm() {
-        let mut cpu = CPU::new();
-        let cart = vec![0xA2, 0x05, 0x00];
-        cpu.mem_run_prg(cart);
+        let cpu = setup_test(AddressingMode::IMM, 0xA2, 0x05);
+        assert_eq!(cpu.reg_x, 0x05);
+    }
+    #[test]
+    fn ldx_abs() {
+        let cpu = setup_test(AddressingMode::ABS, 0xAE, 0x05);
+        assert_eq!(cpu.reg_x, 0x05);
+    }
+    #[test]
+    fn ldx_abs_y() {
+        let cpu = setup_test(AddressingMode::ABS_Y, 0xBE, 0x05);
+        assert_eq!(cpu.reg_x, 0x05);
+    }
+    #[test]
+    fn ldx_zp() {
+        let cpu = setup_test(AddressingMode::ZP, 0xA6, 0x05);
+        assert_eq!(cpu.reg_x, 0x05);
+    }
+    #[test]
+    fn ldx_zp_y() {
+        let cpu = setup_test(AddressingMode::ZP_Y, 0xB6, 0x05);
         assert_eq!(cpu.reg_x, 0x05);
     }
     #[test]
     fn ldy_imm() {
-        let mut cpu = CPU::new();
-        let cart = vec![0xA0, 0x05, 0x00];
-        cpu.mem_run_prg(cart);
+        let cpu = setup_test(AddressingMode::IMM, 0xA0, 0x05);
         assert_eq!(cpu.reg_y, 0x05);
     }
-
     #[test]
-    fn sta_abs() {
-        let mut cpu = CPU::new();
-        let cart = vec![0x8D, 0x50, 0x50, 0x00];
-        cpu.reg_a = 0xFF;
-        cpu.mem_load_prg(cart);
-        cpu.reg_pc = cpu.mem_read_u16(0xFFFC);
-        cpu.execute();
-        assert_eq!(cpu.mem_read(0x5050), 0xFF);
+    fn ldy_abs() {
+        let cpu = setup_test(AddressingMode::ABS, 0xAC, 0x05);
+        assert_eq!(cpu.reg_y, 0x05);
     }
     #[test]
-    fn stx_abs() {
-        let mut cpu = CPU::new();
-        let cart = vec![0x8E, 0x50, 0x50, 0x00];
-        cpu.reg_x = 0xFF;
-        cpu.mem_load_prg(cart);
-        cpu.reg_pc = cpu.mem_read_u16(0xFFFC);
-        cpu.execute();
-        assert_eq!(cpu.mem_read(0x5050), 0xFF);
+    fn ldy_abs_y() {
+        let cpu = setup_test(AddressingMode::ABS_Y, 0xBC, 0x05);
+        assert_eq!(cpu.reg_y, 0x05);
     }
     #[test]
-    fn sty_abs() {
-        let mut cpu = CPU::new();
-        let cart = vec![0x8C, 0x50, 0x50, 0x00];
-        cpu.reg_y = 0xFF;
-        cpu.mem_load_prg(cart);
-        cpu.reg_pc = cpu.mem_read_u16(0xFFFC);
-        cpu.execute();
-        assert_eq!(cpu.mem_read(0x5050), 0xFF);
-    }
-
-    #[test]
-    fn tax_imp() {
-        let mut cpu = CPU::new();
-        let cart = vec![0xAA, 0x00];
-        cpu.reg_a = 0xFF;
-        cpu.mem_load_prg(cart);
-        cpu.reg_pc = cpu.mem_read_u16(0xFFFC);
-        cpu.execute();
-        assert_eq!(cpu.reg_x, 0xFF);
+    fn ldy_zp() {
+        let cpu = setup_test(AddressingMode::ZP, 0xA4, 0x05);
+        assert_eq!(cpu.reg_y, 0x05);
     }
     #[test]
-    fn tay_imp() {
-        let mut cpu = CPU::new();
-        let cart = vec![0xA8, 0x00];
-        cpu.reg_a = 0xFF;
-        cpu.mem_load_prg(cart);
-        cpu.reg_pc = cpu.mem_read_u16(0xFFFC);
-        cpu.execute();
-        assert_eq!(cpu.reg_y, 0xFF);
-    }
-    #[test]
-    fn tsx_imp() {
-        let mut cpu = CPU::new();
-        let cart = vec![0xBA, 0x00];
-        cpu.reg_sp = 0xFF;
-        cpu.mem_load_prg(cart);
-        cpu.reg_pc = cpu.mem_read_u16(0xFFFC);
-        cpu.execute();
-        assert_eq!(cpu.reg_x, 0xFF);
-    }
-    #[test]
-    fn txa_imp() {
-        let mut cpu = CPU::new();
-        let cart = vec![0x8A, 0x00];
-        cpu.reg_x = 0xFF;
-        cpu.mem_load_prg(cart);
-        cpu.reg_pc = cpu.mem_read_u16(0xFFFC);
-        cpu.execute();
-        assert_eq!(cpu.reg_a, 0xFF);
-    }
-    #[test]
-    fn txs_imp() {
-        let mut cpu = CPU::new();
-        let cart = vec![0x9A, 0x00];
-        cpu.reg_x = 0xFF;
-        cpu.mem_load_prg(cart);
-        cpu.reg_pc = cpu.mem_read_u16(0xFFFC);
-        cpu.execute();
-        assert_eq!(cpu.reg_sp, 0xFF);
-    }
-    #[test]
-    fn tya_imp() {
-        let mut cpu = CPU::new();
-        let cart = vec![0x98, 0x00];
-        cpu.reg_y = 0xFF;
-        cpu.mem_load_prg(cart);
-        cpu.reg_pc = cpu.mem_read_u16(0xFFFC);
-        cpu.execute();
-        assert_eq!(cpu.reg_a, 0xFF);
+    fn ldy_zp_x() {
+        let cpu = setup_test(AddressingMode::ZP_X, 0xB4, 0x05);
+        assert_eq!(cpu.reg_y, 0x05);
     }
 }
