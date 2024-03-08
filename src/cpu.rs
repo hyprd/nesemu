@@ -128,9 +128,9 @@ impl CPU {
         self.memory[addr as usize] = value;
     }
     fn reset(&mut self) {
-        self.reg_a = 0;
-        self.reg_x = 0;
-        self.reg_y = 0;
+        self.reg_a = 0x05;
+        self.reg_x = 0x05;
+        self.reg_y = 0x05;
         self.reg_sp = 0xFD;
         self.reg_status = StatusFlags::from_bits_truncate(0b100100);
         self.reg_pc = self.mem_read_u16(0xFFFC);
@@ -178,12 +178,6 @@ impl CPU {
             let opcode = self.mem_read(self.reg_pc);
             self.reg_pc += 1;
             let instruction = jmp_table.get(&opcode).unwrap();
-            if instruction.mnemonic == "STA" {
-                println!(
-                    "{:?} {:#02x?}",
-                    &instruction.addressing_mode, &instruction.instruction
-                );
-            }
             let pc_snapshot = self.reg_pc;
             match opcode {
                 0xA9 | 0xAD | 0xBD | 0xB9 | 0xA5 | 0xB5 | 0xA1 | 0xB1 => {
@@ -316,10 +310,7 @@ impl CPU {
     }
     fn sta(&mut self, mode: &AddressingMode) {
         let address = self.resolve_addressing_mode(mode);
-        println!("STA FUNCTION ADDRESS {:#4X?}", address);
-
         self.mem_write(address, self.reg_a);
-        println!("STA FUNCTION VALUE AT 0xA0A0 {:#02x?}", self.reg_a);
     }
     fn stx(&mut self, mode: &AddressingMode) {
         let address = self.resolve_addressing_mode(mode);
@@ -675,79 +666,139 @@ impl CPU {
     fn nop(&mut self) {}
 }
 
-fn setup_test(
-    addressing_mode: AddressingMode,
-    test_instruction: u8,
-    assert_value: u8,
-) -> CPU {
+enum TestRegister {
+    A,
+    X,
+    Y,
+    PS,
+    SP,
+}
+
+#[derive(PartialEq)]
+enum AssertionType {
+    Memory,
+    Register,
+}
+
+fn test_instruction(
+    addr_mode: AddressingMode,
+    inst: u8,
+    assert_type: AssertionType,
+    reg_to_test: TestRegister,
+) {
     let mut cpu = CPU::new();
-    cpu.reset();
-    let mut cart = vec![];
-       match addressing_mode {
+    let mut cart: Vec<u8> = vec![];
+    let mut asserting_register: bool = false;
+    let mut target_address = 0x00;
+    const ASSERT_VALUE: u8 = 0xFF;
+
+    if assert_type == AssertionType::Register {
+        asserting_register = true;
+    } else {
+        match reg_to_test {
+            TestRegister::A => cpu.reg_a = ASSERT_VALUE,
+            TestRegister::X => cpu.reg_x = ASSERT_VALUE,
+            TestRegister::Y => cpu.reg_y = ASSERT_VALUE,
+            TestRegister::PS => cpu.reg_status = CPU::dec_to_flags(ASSERT_VALUE),
+            TestRegister::SP => cpu.reg_sp = ASSERT_VALUE,
+        }
+    }
+
+    match addr_mode {
         AddressingMode::IMM => {
-            cart = vec![test_instruction, 0x05, 0x00];
+            cart = vec![inst, 0xFF, 0x00];
         }
         AddressingMode::ZP => {
-            cart = vec![test_instruction, 0x50, 0x00];
-            cpu.mem_write(0x50, assert_value);
+            cart = vec![inst, 0xF0, 0x00];
+            if asserting_register {
+                cpu.mem_write(0xF0, ASSERT_VALUE);
+            } else {
+                target_address = 0xF0;
+            }
         }
         AddressingMode::ZP_X => {
-            let mut zp_address = 0x50;
-            cart = vec![test_instruction, zp_address, 0x00];
+            cart = vec![inst, 0xF0, 0x00];
             cpu.reg_x = 0x01;
-            zp_address = zp_address.wrapping_add(cpu.reg_x);
-            cpu.mem_write(zp_address as u16, assert_value);
+            if asserting_register {
+                cpu.mem_write(0xF1, ASSERT_VALUE);
+            } else {
+                target_address = 0xF1;
+            }
         }
         AddressingMode::ZP_Y => {
-            let mut zp_address = 0x50;
-            cart = vec![test_instruction, zp_address, 0x00];
+            cart = vec![inst, 0xF0, 0x00];
             cpu.reg_y = 0x01;
-            zp_address = zp_address.wrapping_add(cpu.reg_y);
-            cpu.mem_write(zp_address as u16, assert_value);
+            if asserting_register {
+                cpu.mem_write(0xF1, ASSERT_VALUE);
+            } else {
+                target_address = 0xF1;
+            }
         }
         AddressingMode::ABS => {
-            cart = vec![test_instruction, 0xA0, 0xA0, 0x00];
-            // Required for functions that load into registers
-            cpu.mem_write(0xA0A0, assert_value);
+            cart = vec![inst, 0xF0, 0xFF, 0x00];
+            if asserting_register {
+                cpu.mem_write(0xFFF0, ASSERT_VALUE);
+            } else {
+                target_address = 0xFFF0;
+            }
         }
         AddressingMode::ABS_X => {
-            let mut abs_address: u16 = 0xA0F0;
-            cart = vec![test_instruction, 0xF0, 0xA0, 0x00];
+            cart = vec![inst, 0xF0, 0xFF, 0x00];
             cpu.reg_x = 0x01;
-            abs_address = abs_address.wrapping_add(cpu.reg_x as u16);
-            cpu.mem_write(abs_address, assert_value);
+            if asserting_register {
+                cpu.mem_write(0xFFF1, ASSERT_VALUE);
+            } else {
+                target_address = 0xFFF1;
+            }
         }
         AddressingMode::ABS_Y => {
-            let mut abs_address: u16 = 0xA0F0;
-            cart = vec![test_instruction, 0xF0, 0xA0, 0x00];
+            cart = vec![inst, 0xF0, 0xFF, 0x00];
             cpu.reg_y = 0x01;
-            abs_address = abs_address.wrapping_add(cpu.reg_y as u16);
-            cpu.mem_write(abs_address, assert_value);
+            if asserting_register {
+                cpu.mem_write(0xFFF1, ASSERT_VALUE);
+            } else {
+                target_address = 0xFFF1;
+            }
         }
         AddressingMode::IND_X => {
-            cart = vec![test_instruction, 0x50, 0x00];
+            cart = vec![inst, 0x42, 0x00];
             cpu.reg_x = 0x01;
-            cpu.mem_write(0x51, 0xA0);
-            cpu.mem_write(0x52, 0xA0);
-            cpu.mem_write(0xA0A0, 0x05);
+            cpu.mem_write(0x43, 0xF0);
+            cpu.mem_write(0x44, 0xFF);
+            if asserting_register {
+                cpu.mem_write(0xFFF0, ASSERT_VALUE);
+            } else {
+                target_address = 0xFFF0;
+            }
         }
         AddressingMode::IND_Y => {
-            cart = vec![test_instruction, 0x50, 0x00];
+            cart = vec![inst, 0x42, 0x00];
             cpu.reg_y = 0x01;
-            cpu.mem_write(0x50, 0xA0);
-            cpu.mem_write(0x51, 0xA0);
-            cpu.mem_write(0xA0A1, 0x05);
+            cpu.mem_write(0x42, 0xF0);
+            cpu.mem_write(0x43, 0xFF);
+            if asserting_register {
+                cpu.mem_write(0xFFF1, ASSERT_VALUE);
+            } else {
+                target_address = 0xFFF1;
+            }
         }
-        AddressingMode::ACC => {
-            cart = vec![test_instruction, 0x00];
-        }
-        AddressingMode::REL => {}
-        AddressingMode::IMP => {}
+        AddressingMode::ACC | AddressingMode::REL | AddressingMode::IMP => {}
     }
     cpu.mem_load_prg(cart);
     cpu.reg_pc = cpu.mem_read_u16(0xFFFC);
     cpu.execute();
-    cpu
+    if asserting_register {
+        let testing_reg = match reg_to_test {
+            TestRegister::A => cpu.reg_a,
+            TestRegister::X => cpu.reg_x,
+            TestRegister::Y => cpu.reg_y,
+            TestRegister::PS => cpu.reg_status.bits(),
+            TestRegister::SP => cpu.reg_sp,
+        };
+        assert_eq!(testing_reg, ASSERT_VALUE);
+    } else {
+        assert_eq!(cpu.mem_read(target_address), ASSERT_VALUE);
+    }
 }
 
 #[cfg(test)]
@@ -755,92 +806,227 @@ mod test {
     use super::*;
     #[test]
     fn lda_imm() {
-        let cpu = setup_test(AddressingMode::IMM, 0xA9, 0x05);
-        assert_eq!(cpu.reg_a, 0x05);
+        test_instruction(
+            AddressingMode::IMM,
+            0xA9,
+            AssertionType::Register,
+            TestRegister::A,
+        );
     }
     #[test]
     fn lda_abs() {
-        let cpu = setup_test(AddressingMode::ABS, 0xAD, 0x05);
-        assert_eq!(cpu.reg_a, 0x05);
+        test_instruction(
+            AddressingMode::ABS,
+            0xAD,
+            AssertionType::Register,
+            TestRegister::A,
+        );
     }
     #[test]
     fn lda_abs_x() {
-        let cpu = setup_test(AddressingMode::ABS_X, 0xBD, 0x05);
-        assert_eq!(cpu.reg_a, 0x05);
+        test_instruction(
+            AddressingMode::ABS_X,
+            0xBD,
+            AssertionType::Register,
+            TestRegister::A,
+        );
     }
     #[test]
     fn lda_abs_y() {
-        let cpu = setup_test(AddressingMode::ABS_Y, 0xB9, 0x05);
-        assert_eq!(cpu.reg_a, 0x05);
+        test_instruction(
+            AddressingMode::ABS_Y,
+            0xB9,
+            AssertionType::Register,
+            TestRegister::A,
+        );
     }
     #[test]
     fn lda_zp() {
-        let cpu = setup_test(AddressingMode::ZP, 0xA5, 0x05);
-        assert_eq!(cpu.reg_a, 0x05);
+        test_instruction(
+            AddressingMode::ZP,
+            0xA5,
+            AssertionType::Register,
+            TestRegister::A,
+        );
     }
     #[test]
     fn lda_zp_x() {
-        let cpu = setup_test(AddressingMode::ZP_X, 0xB5, 0x05);
-        assert_eq!(cpu.reg_a, 0x05);
+        test_instruction(
+            AddressingMode::ZP_X,
+            0xB5,
+            AssertionType::Register,
+            TestRegister::A,
+        );
     }
     #[test]
     fn lda_ind_x() {
-        let cpu = setup_test(AddressingMode::IND_X, 0xA1, 0x05);
-        assert_eq!(cpu.reg_a, 0x05);
+        test_instruction(
+            AddressingMode::IND_X,
+            0xA1,
+            AssertionType::Register,
+            TestRegister::A,
+        );
     }
     #[test]
     fn lda_ind_y() {
-        let cpu = setup_test(AddressingMode::IND_Y, 0xB1, 0x05);
-        assert_eq!(cpu.reg_a, 0x05);
+        test_instruction(
+            AddressingMode::IND_Y,
+            0xB1,
+            AssertionType::Register,
+            TestRegister::A,
+        );
     }
     #[test]
     fn ldx_imm() {
-        let cpu = setup_test(AddressingMode::IMM, 0xA2, 0x05);
-        assert_eq!(cpu.reg_x, 0x05);
+        test_instruction(
+            AddressingMode::IMM,
+            0xA2,
+            AssertionType::Register,
+            TestRegister::X,
+        );
     }
     #[test]
     fn ldx_abs() {
-        let cpu = setup_test(AddressingMode::ABS, 0xAE, 0x05);
-        assert_eq!(cpu.reg_x, 0x05);
+        test_instruction(
+            AddressingMode::ABS,
+            0xAE,
+            AssertionType::Register,
+            TestRegister::X,
+        );
     }
     #[test]
     fn ldx_abs_y() {
-        let cpu = setup_test(AddressingMode::ABS_Y, 0xBE, 0x05);
-        assert_eq!(cpu.reg_x, 0x05);
+        test_instruction(
+            AddressingMode::ABS_Y,
+            0xBE,
+            AssertionType::Register,
+            TestRegister::X,
+        );
     }
     #[test]
     fn ldx_zp() {
-        let cpu = setup_test(AddressingMode::ZP, 0xA6, 0x05);
-        assert_eq!(cpu.reg_x, 0x05);
+        test_instruction(
+            AddressingMode::ZP,
+            0xA6,
+            AssertionType::Register,
+            TestRegister::X,
+        );
     }
     #[test]
     fn ldx_zp_y() {
-        let cpu = setup_test(AddressingMode::ZP_Y, 0xB6, 0x05);
-        assert_eq!(cpu.reg_x, 0x05);
+        test_instruction(
+            AddressingMode::ZP_Y,
+            0xB6,
+            AssertionType::Register,
+            TestRegister::X,
+        );
     }
     #[test]
     fn ldy_imm() {
-        let cpu = setup_test(AddressingMode::IMM, 0xA0, 0x05);
-        assert_eq!(cpu.reg_y, 0x05);
+        test_instruction(
+            AddressingMode::IMM,
+            0xA0,
+            AssertionType::Register,
+            TestRegister::Y,
+        );
     }
     #[test]
     fn ldy_abs() {
-        let cpu = setup_test(AddressingMode::ABS, 0xAC, 0x05);
-        assert_eq!(cpu.reg_y, 0x05);
+        test_instruction(
+            AddressingMode::ABS,
+            0xAC,
+            AssertionType::Register,
+            TestRegister::Y,
+        );
     }
     #[test]
     fn ldy_abs_y() {
-        let cpu = setup_test(AddressingMode::ABS_Y, 0xBC, 0x05);
-        assert_eq!(cpu.reg_y, 0x05);
+        test_instruction(
+            AddressingMode::ABS_Y,
+            0xBC,
+            AssertionType::Register,
+            TestRegister::Y,
+        );
     }
     #[test]
     fn ldy_zp() {
-        let cpu = setup_test(AddressingMode::ZP, 0xA4, 0x05);
-        assert_eq!(cpu.reg_y, 0x05);
+        test_instruction(
+            AddressingMode::ZP,
+            0xA4,
+            AssertionType::Register,
+            TestRegister::Y,
+        );
     }
     #[test]
     fn ldy_zp_x() {
-        let cpu = setup_test(AddressingMode::ZP_X, 0xB4, 0x05);
-        assert_eq!(cpu.reg_y, 0x05);
+        test_instruction(
+            AddressingMode::ZP_X,
+            0xB4,
+            AssertionType::Register,
+            TestRegister::Y,
+        );
+    }
+    #[test]
+    fn sta_abs() {
+        test_instruction(
+            AddressingMode::ABS,
+            0x8D,
+            AssertionType::Memory,
+            TestRegister::A,
+        );
+    }
+    #[test]
+    fn sta_abs_x() {
+        test_instruction(
+            AddressingMode::ABS_X,
+            0x9D,
+            AssertionType::Memory,
+            TestRegister::A,
+        );
+    }
+    #[test]
+    fn sta_abs_y() {
+        test_instruction(
+            AddressingMode::ABS_Y,
+            0x99,
+            AssertionType::Memory,
+            TestRegister::A,
+        );
+    }
+    #[test]
+    fn sta_zp() {
+        test_instruction(
+            AddressingMode::ZP,
+            0x85,
+            AssertionType::Memory,
+            TestRegister::A,
+        );
+    }
+    #[test]
+    fn sta_zp_x() {
+        test_instruction(
+            AddressingMode::ZP_X,
+            0x95,
+            AssertionType::Memory,
+            TestRegister::A,
+        );
+    }
+    #[test]
+    fn sta_ind_x() {
+        test_instruction(
+            AddressingMode::IND_X,
+            0x81,
+            AssertionType::Memory,
+            TestRegister::A,
+        );
+    }
+    #[test]
+    fn sta_ind_y() {
+        test_instruction(
+            AddressingMode::IND_Y,
+            0x91,
+            AssertionType::Memory,
+            TestRegister::A,
+        );
     }
 }
