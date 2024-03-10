@@ -13,7 +13,7 @@ struct CPU {
     memory: [u8; 0xFFFF],
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 #[allow(non_camel_case_types)]
 pub enum AddressingMode {
     IMM,
@@ -678,6 +678,7 @@ enum TestRegister {
 enum AssertionType {
     Memory,
     Register,
+    Stack,
 }
 
 fn test_instruction(
@@ -694,7 +695,8 @@ fn test_instruction(
 
     if assert_type == AssertionType::Register {
         asserting_register = true;
-    } else {
+    }
+    if assert_type == AssertionType::Memory || addr_mode == AddressingMode::IMP {
         match reg_to_test {
             TestRegister::A => cpu.reg_a = ASSERT_VALUE,
             TestRegister::X => cpu.reg_x = ASSERT_VALUE,
@@ -703,7 +705,6 @@ fn test_instruction(
             TestRegister::SP => cpu.reg_sp = ASSERT_VALUE,
         }
     }
-
     match addr_mode {
         AddressingMode::IMM => {
             cart = vec![inst, 0xFF, 0x00];
@@ -782,7 +783,14 @@ fn test_instruction(
                 target_address = 0xFFF1;
             }
         }
-        AddressingMode::ACC | AddressingMode::REL | AddressingMode::IMP => {}
+        AddressingMode::IMP => {
+            cart = vec![inst, 0x00];
+            // stack instructions
+            if inst == 0x48 || inst == 0x08 {
+                target_address = (cpu.reg_sp as u16 + STACK);
+            }
+        }
+        AddressingMode::ACC | AddressingMode::REL => {}
     }
     cpu.mem_load_prg(cart);
     cpu.reg_pc = cpu.mem_read_u16(0xFFFC);
@@ -1026,6 +1034,152 @@ mod test {
             AddressingMode::IND_Y,
             0x91,
             AssertionType::Memory,
+            TestRegister::A,
+        );
+    }
+    #[test]
+    fn stx_abs() {
+        test_instruction(
+            AddressingMode::ABS,
+            0x8E,
+            AssertionType::Memory,
+            TestRegister::X,
+        );
+    }
+    #[test]
+    fn stx_zp() {
+        test_instruction(
+            AddressingMode::ZP,
+            0x86,
+            AssertionType::Memory,
+            TestRegister::X,
+        );
+    }
+    #[test]
+    fn stx_zp_y() {
+        test_instruction(
+            AddressingMode::ZP_Y,
+            0x96,
+            AssertionType::Memory,
+            TestRegister::X,
+        );
+    }
+    #[test]
+    fn sty_abs() {
+        test_instruction(
+            AddressingMode::ABS,
+            0x8C,
+            AssertionType::Memory,
+            TestRegister::Y,
+        );
+    }
+    #[test]
+    fn sty_zp() {
+        test_instruction(
+            AddressingMode::ZP,
+            0x84,
+            AssertionType::Memory,
+            TestRegister::Y,
+        );
+    }
+    #[test]
+    fn sty_zp_x() {
+        test_instruction(
+            AddressingMode::ZP_X,
+            0x94,
+            AssertionType::Memory,
+            TestRegister::Y,
+        );
+    }
+    #[test]
+    fn tax() {
+        test_instruction(
+            AddressingMode::IMP,
+            0xAA,
+            AssertionType::Register,
+            TestRegister::A,
+        )
+    }
+
+    #[test]
+    fn tay() {
+        test_instruction(
+            AddressingMode::IMP,
+            0xA8,
+            AssertionType::Register,
+            TestRegister::A,
+        );
+    }
+
+    #[test]
+    fn tsx() {
+        test_instruction(
+            AddressingMode::IMP,
+            0xBA,
+            AssertionType::Register,
+            TestRegister::SP,
+        );
+    }
+    #[test]
+    fn txa() {
+        test_instruction(
+            AddressingMode::IMP,
+            0x8A,
+            AssertionType::Register,
+            TestRegister::X,
+        );
+    }
+    #[test]
+    fn txs() {
+        test_instruction(
+            AddressingMode::IMP,
+            0x9A,
+            AssertionType::Register,
+            TestRegister::X,
+        );
+    }
+    #[test]
+    fn tya() {
+        test_instruction(
+            AddressingMode::IMP,
+            0x98,
+            AssertionType::Register,
+            TestRegister::Y,
+        );
+    }
+    #[test]
+    fn pha() {
+        test_instruction(
+            AddressingMode::IMP,
+            0x48,
+            AssertionType::Memory,
+            TestRegister::A,
+        );
+    }
+    #[test]
+    fn php() {
+        test_instruction(
+            AddressingMode::IMP,
+            0x08,
+            AssertionType::Memory,
+            TestRegister::PS,
+        );
+    }
+    #[test]
+    fn pla() {
+        test_instruction(
+            AddressingMode::IMP,
+            0x68,
+            AssertionType::Register,
+            TestRegister::PS,
+        );
+    }
+    #[test]
+    fn plp() {
+        test_instruction(
+            AddressingMode::IMP,
+            0x28,
+            AssertionType::Register,
             TestRegister::A,
         );
     }
