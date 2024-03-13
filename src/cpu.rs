@@ -680,48 +680,6 @@ enum AssertionType {
     Stack,
 }
 
-// fn test_instruction(
-//     addr_mode: AddressingMode,
-//     inst: u8,
-//     assert_type: AssertionType,
-//     reg_to_test: TestRegister,
-// ) {
-//     let mut cpu = CPU::new();
-//     let mut cart: Vec<u8> = vec![];
-//     let mut asserting_register: bool = false;
-//     let mut target_address = 0x00;
-//     const ASSERT_VALUE: u8 = 0xFF;
-
-//     if assert_type == AssertionType::Register {
-//         asserting_register = true;
-//     }
-//     if assert_type == AssertionType::Memory || addr_mode == AddressingMode::IMP {
-//         match reg_to_test {
-//             TestRegister::A => cpu.reg_a = ASSERT_VALUE,
-//             TestRegister::X => cpu.reg_x = ASSERT_VALUE,
-//             TestRegister::Y => cpu.reg_y = ASSERT_VALUE,
-//             TestRegister::PS => cpu.reg_status = CPU::dec_to_flags(ASSERT_VALUE),
-//             TestRegister::SP => cpu.reg_sp = ASSERT_VALUE,
-//         }
-//     }
-//     match addr_mode {}
-//     cpu.mem_load_prg(cart);
-//     cpu.reg_pc = cpu.mem_read_u16(0xFFFC);
-//     cpu.execute();
-//     if asserting_register {
-//         let testing_reg = match reg_to_test {
-//             TestRegister::A => cpu.reg_a,
-//             TestRegister::X => cpu.reg_x,
-//             TestRegister::Y => cpu.reg_y,
-//             TestRegister::PS => cpu.reg_status.bits(),
-//             TestRegister::SP => cpu.reg_sp,
-//         };
-//         assert_eq!(testing_reg, ASSERT_VALUE);
-//     } else {
-//         assert_eq!(cpu.mem_read(target_address), ASSERT_VALUE);
-//     }
-// }
-
 enum InstructionType {
     LOAD,
     TRANSFER,
