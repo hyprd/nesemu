@@ -742,7 +742,8 @@ fn preallocate_cpu_values(cpu: &mut CPU, inst_type: InstructionType) {
         }
         InstructionType::STACK => {
             cpu.reg_a = 0x10;
-            cpu.reg_status = CPU::dec_to_flags(0x10);
+            cpu.reg_status.insert(StatusFlags::INTERRUPT_MASK);
+            cpu.stack_push(0x16);
         }
         InstructionType::SHIFT => {
             cpu.reg_a = 0x10;
@@ -1046,5 +1047,32 @@ mod test {
         let cpu = test_instruction(InstructionType::TRANSFER, 0x98, AddressingMode::IMP);
         assert_eq!(cpu.reg_a, cpu.reg_y);
         assert_eq!(cpu.reg_pc, 0x8002);
+    }
+    #[test]
+    fn pha_imp() {
+        let cpu = test_instruction(InstructionType::STACK, 0x48, AddressingMode::IMP);
+        assert_eq!(cpu.mem_read(STACK + cpu.reg_sp as u16 + 1), cpu.reg_a);
+    }
+    #[test]
+    fn php_imp() {
+        let mut cpu = test_instruction(InstructionType::STACK, 0x08, AddressingMode::IMP);
+        // PHP clones reg_status then sets BRK and BRK_2, so they need to be set in the test too.
+        cpu.reg_status.insert(StatusFlags::BREAK);
+        cpu.reg_status.insert(StatusFlags::BREAK_2);
+        assert_eq!(
+            cpu.mem_read(STACK + cpu.reg_sp as u16 + 1),
+            cpu.reg_status.bits()
+        );
+    }
+    #[test]
+    fn pla_imp() {
+        let cpu = test_instruction(InstructionType::STACK, 0x68, AddressingMode::IMP);
+        assert_ne!(cpu.reg_a, 0x10);
+        assert_eq!(cpu.reg_a, 0x16);
+    }
+    #[test]
+    fn plp_imp() {
+        let cpu = test_instruction(InstructionType::STACK, 0x28, AddressingMode::IMP);
+        assert_eq!(cpu.reg_status.bits(), 0x16);
     }
 }
