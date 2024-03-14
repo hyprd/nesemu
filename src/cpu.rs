@@ -199,10 +199,14 @@ impl CPU {
                 0x08 => self.php(),
                 0x68 => self.pla(),
                 0x28 => self.plp(),
-                0x0A | 0x0E | 0x1E | 0x06 | 0x16 => self.asl(&instruction.addressing_mode),
-                0x4A | 0x4E | 0x5E | 0x46 | 0x56 => self.lsr(&instruction.addressing_mode),
-                0x2A | 0x2E | 0x3E | 0x26 | 0x36 => self.rol(&instruction.addressing_mode),
-                0x6A | 0x6E | 0x7E | 0x66 | 0x76 => self.ror(&instruction.addressing_mode),
+                0x0A => self.asl_a(),
+                0x0E | 0x1E | 0x06 | 0x16 => self.asl(&instruction.addressing_mode),
+                0x4A => self.lsr_a(),
+                0x4E | 0x5E | 0x46 | 0x56 => self.lsr(&instruction.addressing_mode),
+                0x2A => self.rol_a(),
+                0x2E | 0x3E | 0x26 | 0x36 => self.rol(&instruction.addressing_mode),
+                0x6A => self.ror_a(),
+                0x6E | 0x7E | 0x66 | 0x76 => self.ror(&instruction.addressing_mode),
                 0x29 | 0x2D | 0x3D | 0x39 | 0x25 | 0x35 | 0x21 | 0x31 => {
                     self.and(&instruction.addressing_mode)
                 }
@@ -390,12 +394,17 @@ impl CPU {
     }
     fn lsr(&mut self, mode: &AddressingMode) {
         let address = self.resolve_addressing_mode(mode);
-        let value = self.mem_read(address);
+        let mut value = self.mem_read(address);
+        println!("{:#02X?} {:#02X?}", address, value);
         if value & 0x01 == 1 {
             self.reg_status.insert(StatusFlags::CARRY);
         } else {
             self.reg_status.remove(StatusFlags::CARRY);
         }
+        value >>= 1;
+        println!("{:#02X?}", value);
+        self.mem_write(address, value);
+        self.handle_flags_z_n(value);
     }
     fn rol_a(&mut self) {
         let mut value = self.reg_a;
@@ -751,6 +760,8 @@ fn preallocate_cpu_values(cpu: &mut CPU, inst_type: InstructionType) {
             cpu.reg_x = 0x10;
             // Zero Page
             cpu.mem_write(0x10, 0x20);
+            // Zero Page X
+            cpu.mem_write(0x20, 0x20);
             // Absolute
             cpu.mem_write(0xF0A0, 0x20);
             cpu.mem_write(0xF0B0, 0x20);
@@ -1074,5 +1085,106 @@ mod test {
     fn plp_imp() {
         let cpu = test_instruction(InstructionType::STACK, 0x28, AddressingMode::IMP);
         assert_eq!(cpu.reg_status.bits(), 0x16);
+    }
+    #[test]
+    fn asl_acc() {
+        let cpu = test_instruction(InstructionType::SHIFT, 0x0A, AddressingMode::ACC);
+        assert_ne!(cpu.reg_a, 0x10);
+        assert_eq!(cpu.reg_a, 0x20);
+    }
+    #[test]
+    fn asl_abs() {
+        let cpu = test_instruction(InstructionType::SHIFT, 0x0E, AddressingMode::ABS);
+        assert_eq!(cpu.mem_read(0xF0A0), 0x40);
+    }
+    #[test]
+    fn asl_abs_x() {
+        let cpu = test_instruction(InstructionType::SHIFT, 0x1E, AddressingMode::ABS_X);
+        assert_eq!(cpu.mem_read(0xF0B0), 0x40);
+    }
+    #[test]
+    fn asl_zp() {
+        let cpu = test_instruction(InstructionType::SHIFT, 0x06, AddressingMode::ZP);
+        assert_eq!(cpu.mem_read(0x10), 0x40);
+    }
+    #[test]
+    fn asl_zp_x() {
+        let cpu = test_instruction(InstructionType::SHIFT, 0x16, AddressingMode::ZP_X);
+        assert_eq!(cpu.mem_read(0x20), 0x40);
+    }
+    #[test]
+    fn lsr_acc() {
+        let cpu = test_instruction(InstructionType::SHIFT, 0x4A, AddressingMode::ACC);
+        assert_eq!(cpu.reg_a, 0x08);
+    }
+    #[test]
+    fn lsr_abs() {
+        let cpu = test_instruction(InstructionType::SHIFT, 0x4E, AddressingMode::ABS);
+        assert_eq!(cpu.mem_read(0xF0A0), 0x10);
+    }
+    #[test]
+    fn lsr_abs_x() {
+        let cpu = test_instruction(InstructionType::SHIFT, 0x5E, AddressingMode::ABS_X);
+        assert_eq!(cpu.mem_read(0xF0B0), 0x10);
+    }
+    #[test]
+    fn lsr_zp() {
+        let cpu = test_instruction(InstructionType::SHIFT, 0x46, AddressingMode::ZP);
+        assert_eq!(cpu.mem_read(0x10), 0x10);
+    }
+    #[test]
+    fn lsr_zp_x() {
+        let cpu = test_instruction(InstructionType::SHIFT, 0x56, AddressingMode::ZP_X);
+        assert_eq!(cpu.mem_read(0x20), 0x10);
+    }
+    #[test]
+    fn rol_acc() {
+        let cpu = test_instruction(InstructionType::SHIFT, 0x2A, AddressingMode::ACC);
+        assert_eq!(cpu.reg_a, 0x10);
+    }
+    #[test]
+    fn rol_abs() {
+        let cpu = test_instruction(InstructionType::SHIFT, 0x2E, AddressingMode::ABS);
+        assert_eq!(cpu.mem_read(0xF0A0), 0x40);
+    }
+    #[test]
+    fn rol_abs_x() {
+        let cpu = test_instruction(InstructionType::SHIFT, 0x3E, AddressingMode::ABS_X);
+        assert_eq!(cpu.mem_read(0xF0B0), 0x40);
+    }
+    #[test]
+    fn rol_zp() {
+        let cpu = test_instruction(InstructionType::SHIFT, 0x26, AddressingMode::ZP);
+        assert_eq!(cpu.mem_read(0x10), 0x40);
+    }
+    #[test]
+    fn rol_zp_x() {
+        let cpu = test_instruction(InstructionType::SHIFT, 0x36, AddressingMode::ZP_X);
+        assert_eq!(cpu.mem_read(0x20), 0x40);
+    }
+    #[test]
+    fn ror_acc() {
+        let cpu = test_instruction(InstructionType::SHIFT, 0x4A, AddressingMode::ACC);
+        assert_eq!(cpu.reg_a, 0x08);
+    }
+    #[test]
+    fn ror_abs() {
+        let cpu = test_instruction(InstructionType::SHIFT, 0x4E, AddressingMode::ABS);
+        assert_eq!(cpu.mem_read(0xF0A0), 0x10);
+    }
+    #[test]
+    fn ror_abs_x() {
+        let cpu = test_instruction(InstructionType::SHIFT, 0x5E, AddressingMode::ABS_X);
+        assert_eq!(cpu.mem_read(0xF0B0), 0x10);
+    }
+    #[test]
+    fn ror_zp() {
+        let cpu = test_instruction(InstructionType::SHIFT, 0x46, AddressingMode::ZP);
+        assert_eq!(cpu.mem_read(0x10), 0x10);
+    }
+    #[test]
+    fn ror_zp_x() {
+        let cpu = test_instruction(InstructionType::SHIFT, 0x56, AddressingMode::ZP_X);
+        assert_eq!(cpu.mem_read(0x20), 0x10);
     }
 }
