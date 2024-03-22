@@ -3,13 +3,13 @@
 use crate::opcodes;
 use std::collections::HashMap;
 
-struct CPU {
-    reg_a: u8,
-    reg_x: u8,
-    reg_y: u8,
-    reg_pc: u16,
-    reg_sp: u8,
-    reg_status: StatusFlags,
+pub struct CPU {
+    pub reg_a: u8,
+    pub reg_x: u8,
+    pub reg_y: u8,
+    pub reg_pc: u16,
+    pub reg_sp: u8,
+    pub reg_status: StatusFlags,
     memory: [u8; 0xFFFF],
 }
 
@@ -34,7 +34,7 @@ const STACK: u16 = 0x0100;
 
 bitflags! {
     #[derive(Clone)]
-    struct StatusFlags: u8 {
+    pub struct StatusFlags: u8 {
         const CARRY = 0b00000001;
         const ZERO = 0b00000010;
         const INTERRUPT_MASK = 0b00000100;
@@ -45,8 +45,13 @@ bitflags! {
         const NEGATIVE = 0b10000000;
     }
 }
+
+fn print_hex(dec: u8) {
+    println!("{:02X?}", dec);
+}
+
 impl CPU {
-    fn new() -> Self {
+    pub fn new() -> Self {
         CPU {
             reg_a: 0,
             reg_x: 0,
@@ -105,47 +110,56 @@ impl CPU {
         }
     }
     // Read from memory
-    fn mem_read(&self, addr: u16) -> u8 {
+    pub fn mem_read(&self, addr: u16) -> u8 {
         self.memory[addr as usize]
     }
     // Reading a word is done in little-endian format
-    fn mem_read_u16(&mut self, addr: u16) -> u16 {
+    pub fn mem_read_u16(&mut self, addr: u16) -> u16 {
         // LL, HH are 6502 mnemonics
         let ll = self.mem_read(addr) as u16;
         let hh = self.mem_read(addr + 1) as u16;
-        (hh << 8) | ll
+        (hh << 8) | (ll as u16)
     }
     // Reading a word is done in little-endian format
-    fn mem_write_u16(&mut self, addr: u16, value: u16) {
+    pub fn mem_write_u16(&mut self, addr: u16, value: u16) {
         let hh = (value >> 8) as u8;
         let ll = (value & 0xFF) as u8;
         self.mem_write(addr, ll);
         self.mem_write(addr + 1, hh);
     }
     // Write to address
-    fn mem_write(&mut self, addr: u16, value: u8) {
+    pub fn mem_write(&mut self, addr: u16, value: u8) {
         self.memory[addr as usize] = value;
     }
-    fn reset(&mut self) {
-        self.reg_a = 0x05;
-        self.reg_x = 0x05;
-        self.reg_y = 0x05;
+    pub fn reset(&mut self) {
+        self.reg_a = 0x00;
+        self.reg_x = 0x00;
+        self.reg_y = 0x00;
         self.reg_sp = 0xFD;
         self.reg_status = StatusFlags::from_bits_truncate(0b100100);
         self.reg_pc = self.mem_read_u16(0xFFFC);
     }
     // Load program from PRG ROM
-    fn mem_load_prg(&mut self, cart: Vec<u8>) {
+    pub fn mem_load_prg(&mut self, cart: Vec<u8>) {
         // 0x8000 -> 0xFFFF is reserved for PRG ROM
-        self.memory[0x8000..(0x8000 + cart.len())].copy_from_slice(&cart[..]);
+        // self.memory[0x8000..(0x8000 + cart.len())].copy_from_slice(&cart[..]);
+
         // NES re/initializes PC to the value @0xFFFC on RST
-        self.mem_write_u16(0xFFFC, 0x8000);
+        // self.mem_write_u16(0xFFFC, 0x8000);
+
+        // Test for snake game
+        self.memory[0x0600..(0x0600 + cart.len())].copy_from_slice(&cart[..]);
+        self.mem_write_u16(0xFFFC, 0x0600);
     }
     // Run program loaded from PRG ROM
-    fn mem_run_prg(&mut self, cart: Vec<u8>) {
+    pub fn mem_run_prg(&mut self, cart: Vec<u8>) {
         self.mem_load_prg(cart);
         self.reset();
-        self.execute();
+        // self.execute_with_callback();
+    }
+
+    pub fn run(&mut self) {
+        self.execute_with_callback(|_| {});
     }
 
     // Stack grows DOWNWARD in 6502 (and variants).
@@ -167,11 +181,14 @@ impl CPU {
     }
 
     fn stack_pop_u16(&mut self) -> u16 {
-        let hh = self.stack_pop() as u16;
         let ll = self.stack_pop() as u16;
+        let hh = self.stack_pop() as u16;
         hh << 8 | ll
     }
-    fn execute(&mut self) {
+    pub fn execute_with_callback<F>(&mut self, mut callback: F)
+    where
+        F: FnMut(&mut CPU),
+    {
         let ref jmp_table: HashMap<u8, &'static opcodes::Opcode> = *opcodes::OPCODES_JMP_TABLE;
         loop {
             let opcode = self.mem_read(self.reg_pc);
@@ -235,6 +252,7 @@ impl CPU {
                 0xE8 => self.inx(),
                 0xC8 => self.iny(),
                 0x00 => {
+                    // return;
                     self.brk();
                     break;
                 }
@@ -266,6 +284,7 @@ impl CPU {
             if pc_snapshot == self.reg_pc {
                 self.reg_pc += (&instruction.length - 1) as u16;
             }
+            callback(self);
         }
     }
 
@@ -515,24 +534,24 @@ impl CPU {
     //  -> -B = !B + 1
     // This is a generic function both operations can use.
     fn add_to_a(&mut self, value: u8) {
-        let a = self.reg_a as u16;
-        let mut carry = 0 as u16;
+        let mut carry = 0;
         if self.reg_status.contains(StatusFlags::CARRY) {
             carry = 1;
         }
-        let evaluation = a ^ value as u16 ^ carry;
-        if evaluation > 0xFF {
+        let sum = self.reg_a as u16 + value as u16 + carry;
+        if sum > 0xFF {
             self.reg_status.insert(StatusFlags::CARRY);
         } else {
             self.reg_status.remove(StatusFlags::CARRY);
         }
-        // if overflows s8
-        if (value ^ (evaluation as u8)) & ((evaluation as u8) ^ self.reg_a) & 0x80 != 0 {
+        let eval = sum as u8;
+        if (value ^ eval) & (eval ^ self.reg_a) & 0x80 != 0 {
             self.reg_status.insert(StatusFlags::OVERFLOW);
         } else {
-            self.reg_status.remove(StatusFlags::OVERFLOW);
+            self.reg_status.remove(StatusFlags::OVERFLOW)
         }
-        self.reg_a = evaluation as u8;
+        self.reg_a = eval;
+        self.handle_flags_z_n(self.reg_a);
     }
 
     fn adc(&mut self, mode: &AddressingMode) {
@@ -622,7 +641,8 @@ impl CPU {
         self.reg_pc = self.stack_pop_u16();
     }
     fn rts(&mut self) {
-        self.reg_pc = self.stack_pop_u16() + 1;
+        let data = self.stack_pop_u16();
+        self.reg_pc = data + 1;
     }
     fn bcc(&mut self) {
         self.branch(!self.reg_status.contains(StatusFlags::CARRY));
@@ -706,7 +726,7 @@ fn test_instruction(inst_type: InstructionType, inst: u8, addr_mode: AddressingM
     cpu.mem_load_prg(generate_test_cart(inst, addr_mode));
     preallocate_cpu_values(&mut cpu, inst_type);
     cpu.reg_pc = cpu.mem_read_u16(0xFFFC);
-    cpu.execute();
+    // cpu.execute();
     cpu
 }
 

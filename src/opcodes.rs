@@ -32,10 +32,13 @@ lazy_static! {
     };
 
     pub static ref OPCODES: Vec<Opcode> = vec![
-             Opcode::new(0x79, "ADC", 4, 5, AddressingMode::ABS_Y),
-             Opcode::new(0x65, "ADC", 2, 3, AddressingMode::ZP),
-             Opcode::new(0x75, "ADC", 2, 4, AddressingMode::ZP_X),
-             Opcode::new(0x61, "ADC", 2, 5, AddressingMode::IND_X),
+             Opcode::new(0x69, "ADC", 2, 5, AddressingMode::IMM),
+             Opcode::new(0x6D, "ADC", 3, 3, AddressingMode::ABS),
+             Opcode::new(0x7D, "ADC", 3, 4, AddressingMode::ABS_X),
+             Opcode::new(0x79, "ADC", 3, 5, AddressingMode::ABS_Y),
+             Opcode::new(0x65, "ADC", 2, 6, AddressingMode::ZP),
+             Opcode::new(0x75, "ADC", 2, 6, AddressingMode::ZP_X),
+             Opcode::new(0x61, "ADC", 2, 6, AddressingMode::IND_X),
              Opcode::new(0x71, "ADC", 2, 6, AddressingMode::IND_Y),
              Opcode::new(0x29, "AND", 2, 2, AddressingMode::IMM),
              Opcode::new(0x2D, "AND", 3, 4, AddressingMode::ABS),
