@@ -1,7 +1,9 @@
+mod bus;
 mod cpu;
 mod opcodes;
-mod bus;
 
+use bus::Bus;
+use cpu::Memory;
 use cpu::CPU;
 use rand::Rng;
 use sdl2::event::Event;
@@ -79,7 +81,7 @@ fn handle_user_input(cpu: &mut CPU, event_pump: &mut EventPump) {
             } => {
                 cpu.mem_write(0xff, 0x64);
             }
-            _ => { /* do nothing */ }
+            _ => {}
         }
     }
 }
@@ -125,7 +127,8 @@ fn main() {
         0x91, 0x00, 0x60, 0xa6, 0x03, 0xa9, 0x00, 0x81, 0x10, 0xa2, 0x00, 0xa9, 0x01, 0x81, 0x10,
         0x60, 0xa2, 0x00, 0xea, 0xea, 0xca, 0xd0, 0xfb, 0x60,
     ];
-    let mut cpu = CPU::new();
+    let bus = Bus::new();
+    let mut cpu = CPU::new(bus);
     cpu.mem_load_prg(snake);
     cpu.reset();
     let mut screen_state = [0_u8; 32 * 3 * 32];
