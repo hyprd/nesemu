@@ -1,5 +1,6 @@
 #![allow(warnings)]
 
+use crate::bus::Bus;
 use crate::opcodes;
 use std::collections::HashMap;
 
@@ -10,6 +11,7 @@ pub struct CPU {
     pub reg_pc: u16,
     pub reg_sp: u8,
     pub reg_status: StatusFlags,
+    pub bus: Bus,
     memory: [u8; 0xFFFF],
 }
 
@@ -50,8 +52,40 @@ fn print_hex(dec: u8) {
     println!("{:02X?}", dec);
 }
 
+pub trait Memory {
+    fn mem_read(&self, addr: u16) -> u8;
+    fn mem_write(&mut self, addr: u16, value: u8);
+    fn mem_read_u16(&self, addr: u16) -> u16 {
+        // LL, HH are 6502 mnemonics
+        let ll = self.mem_read(addr) as u16;
+        let hh = self.mem_read(addr + 1) as u16;
+        (hh << 8) | (ll as u16)
+    }
+    fn mem_write_u16(&mut self, addr: u16, value: u16) {
+        let hh = (value >> 8) as u8;
+        let ll = (value & 0xFF) as u8;
+        self.mem_write(addr, ll);
+        self.mem_write(addr + 1, hh);
+    }
+}
+
+impl Memory for CPU {
+    fn mem_read(&self, addr: u16) -> u8 {
+        self.bus.mem_read(addr)
+    }
+    fn mem_write(&mut self, addr: u16, value: u8) {
+        self.bus.mem_write(addr, value)
+    }
+    fn mem_read_u16(&self, addr: u16) -> u16 {
+        self.bus.mem_read_u16(addr)
+    }
+    fn mem_write_u16(&mut self, addr: u16, value: u16) {
+        self.bus.mem_write_u16(addr, value)
+    }
+}
+
 impl CPU {
-    pub fn new() -> Self {
+    pub fn new(bus: Bus) -> Self {
         CPU {
             reg_a: 0,
             reg_x: 0,
@@ -60,6 +94,7 @@ impl CPU {
             reg_sp: 0xFD,
             reg_status: StatusFlags::from_bits_truncate(0b100100),
             memory: [0; 0xFFFF],
+            bus,
         }
     }
     fn resolve_addressing_mode(&mut self, mode: &AddressingMode) -> u16 {
@@ -108,28 +143,6 @@ impl CPU {
                 panic!("Implement relative addressing");
             }
         }
-    }
-    // Read from memory
-    pub fn mem_read(&self, addr: u16) -> u8 {
-        self.memory[addr as usize]
-    }
-    // Reading a word is done in little-endian format
-    pub fn mem_read_u16(&mut self, addr: u16) -> u16 {
-        // LL, HH are 6502 mnemonics
-        let ll = self.mem_read(addr) as u16;
-        let hh = self.mem_read(addr + 1) as u16;
-        (hh << 8) | (ll as u16)
-    }
-    // Reading a word is done in little-endian format
-    pub fn mem_write_u16(&mut self, addr: u16, value: u16) {
-        let hh = (value >> 8) as u8;
-        let ll = (value & 0xFF) as u8;
-        self.mem_write(addr, ll);
-        self.mem_write(addr + 1, hh);
-    }
-    // Write to address
-    pub fn mem_write(&mut self, addr: u16, value: u8) {
-        self.memory[addr as usize] = value;
     }
     pub fn reset(&mut self) {
         self.reg_a = 0x00;
@@ -722,7 +735,8 @@ enum InstructionType {
 
 // Host function for setting up and running an instruction test
 fn test_instruction(inst_type: InstructionType, inst: u8, addr_mode: AddressingMode) -> CPU {
-    let mut cpu = CPU::new();
+    let bus = Bus::new();
+    let mut cpu = CPU::new(bus);
     cpu.mem_load_prg(generate_test_cart(inst, addr_mode));
     preallocate_cpu_values(&mut cpu, inst_type);
     cpu.reg_pc = cpu.mem_read_u16(0xFFFC);
