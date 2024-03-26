@@ -7,6 +7,8 @@ const RAM_ADDRESS_SPACE_START: u16 = 0x0000;
 const RAM_ADDRESS_SPACE_END: u16 = 0x1FFF;
 const PPU_ADDRESS_SPACE_START: u16 = 0x2000;
 const PPU_ADDRESS_SPACE_END: u16 = 0x3FFF;
+const PRG_ADDRESS_SPACE_START : u16 = 0x8000;
+const PRG_ADDRESS_SPACE_END: u16: 0xFFFF;
 
 pub struct Bus {
     vram: [u8; 0x800],
@@ -26,6 +28,7 @@ impl Memory for Bus {
             PPU_ADDRESS_SPACE_START..=PPU_ADDRESS_SPACE_END => {
                 todo!("Implement ppu!");
             }
+            PRG_ADDRESS_SPACE_START..=PRG_ADDRESS_SPACE_END => self.read_prg_rom(addr),
             _ => {
                 println!("Memory access at {:#04X?} ignored", addr);
                 0
@@ -41,6 +44,9 @@ impl Memory for Bus {
             PPU_ADDRESS_SPACE_START..=PPU_ADDRESS_SPACE_END => {
                 todo!("Implement ppu!");
             }
+            PRG_ADDRESS_SPACE_START..=PRG_ADDRESS_SPACE_END => {
+                panic!("Illegal write to cartridge ROM");
+            }
             _ => {
                 println!("Memory write at {:#04X?} ignored", addr);
             }
@@ -52,7 +58,14 @@ impl Bus {
     pub fn new(rom: ROM) -> Self {
         Bus {
             vram: [0; 0x800],
-            rom
+            rom,
         }
+    }
+    fn read_prg_rom(&self, mut addr: u16) -> u8 {
+        addr -= 0x8000;
+        if self.rom.rom_prg.len() == 0x4000 && addr - 0x8000 >= 0x4000 {
+            addr = addr % 0x4000;
+        }
+        self.rom.rom_prg[addr as usize]
     }
 }
