@@ -1,5 +1,6 @@
 #![allow(warnings)]
 
+use crate::cartridge::ROM;
 use crate::cpu::Memory;
 
 const RAM_ADDRESS_SPACE_START: u16 = 0x0000;
@@ -9,6 +10,7 @@ const PPU_ADDRESS_SPACE_END: u16 = 0x3FFF;
 
 pub struct Bus {
     vram: [u8; 0x800],
+    rom: ROM,
 }
 
 impl Memory for Bus {
@@ -47,7 +49,10 @@ impl Memory for Bus {
 }
 
 impl Bus {
-    pub fn new() -> Self {
-        Bus { vram: [0; 0x800] }
+    pub fn new(rom: ROM) -> Self {
+        Bus {
+            vram: [0; 0x800],
+            rom
+        }
     }
 }
