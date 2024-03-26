@@ -12,7 +12,7 @@ pub struct CPU {
     pub reg_sp: u8,
     pub reg_status: StatusFlags,
     pub bus: Bus,
-    memory: [u8; 0xFFFF],
+    // memory: [u8; 0xFFFF],
 }
 
 #[derive(Debug, PartialEq)]
@@ -93,7 +93,7 @@ impl CPU {
             reg_pc: 0,
             reg_sp: 0xFD,
             reg_status: StatusFlags::from_bits_truncate(0b100100),
-            memory: [0; 0xFFFF],
+            // memory: [0; 0xFFFF],
             bus,
         }
     }
@@ -153,22 +153,17 @@ impl CPU {
         self.reg_pc = self.mem_read_u16(0xFFFC);
     }
     // Load program from PRG ROM
-    pub fn mem_load_prg(&mut self, cart: Vec<u8>) {
-        // 0x8000 -> 0xFFFF is reserved for PRG ROM
-        // self.memory[0x8000..(0x8000 + cart.len())].copy_from_slice(&cart[..]);
-
-        // NES re/initializes PC to the value @0xFFFC on RST
-        // self.mem_write_u16(0xFFFC, 0x8000);
-
-        // Test for snake game
-        self.memory[0x0600..(0x0600 + cart.len())].copy_from_slice(&cart[..]);
-        self.mem_write_u16(0xFFFC, 0x0600);
+    pub fn load(&mut self, cart: Vec<u8>) {
+        for i in 0..(cart.len() as u16) {
+            self.mem_write(0x8600 + i, cart[i as usize]);
+        }
+        self.mem_write_u16(0xFFFC, 0x8600);
     }
     // Run program loaded from PRG ROM
     pub fn mem_run_prg(&mut self, cart: Vec<u8>) {
-        self.mem_load_prg(cart);
+        self.load(cart);
         self.reset();
-        // self.execute_with_callback();
+        self.run();
     }
 
     pub fn run(&mut self) {
@@ -734,624 +729,624 @@ enum InstructionType {
 }
 
 // Host function for setting up and running an instruction test
-fn test_instruction(inst_type: InstructionType, inst: u8, addr_mode: AddressingMode) -> CPU {
-    let bus = Bus::new();
-    let mut cpu = CPU::new(bus);
-    cpu.mem_load_prg(generate_test_cart(inst, addr_mode));
-    preallocate_cpu_values(&mut cpu, inst_type);
-    cpu.reg_pc = cpu.mem_read_u16(0xFFFC);
-    // cpu.execute();
-    cpu
-}
+//fn test_instruction(inst_type: InstructionType, inst: u8, addr_mode: AddressingMode) -> CPU {
+//    let bus = Bus::new(test::test_rom());
+//    let mut cpu = CPU::new(bus);
+//    cpu.mem_load_prg(generate_test_cart(inst, addr_mode));
+//    preallocate_cpu_values(&mut cpu, inst_type);
+//    cpu.reg_pc = cpu.mem_read_u16(0xFFFC);
+//    cpu.run();
+//    cpu
+//}
 
-// Some registers need some values preallocated in registers or memory
-// before execution in order to test properly
-fn preallocate_cpu_values(cpu: &mut CPU, inst_type: InstructionType) {
-    match inst_type {
-        InstructionType::LOAD => {
-            cpu.reg_a = 0x10;
-            cpu.reg_x = 0x10;
-            cpu.reg_y = 0x10;
-            // Zero Page
-            cpu.mem_write(0x10, 0x20);
-            // Zero Page X, Y
-            cpu.mem_write(0x20, 0x20);
-            // Absolute
-            cpu.mem_write(0xF0A0, 0x20);
-            cpu.mem_write(0xF0B0, 0x20);
-            // Indirect X
-            cpu.mem_write(0x52, 0x20);
-            cpu.mem_write(0x53, 0x20);
-            cpu.mem_write(0x2020, 0x20);
-            // Indirect Y
-            cpu.mem_write(0x42, 0x20);
-            cpu.mem_write(0x43, 0x20);
-            cpu.mem_write(0x2030, 0x20);
-        }
-        InstructionType::TRANSFER => {
-            cpu.reg_a = 0x10;
-            cpu.reg_sp = 0x10;
-            cpu.reg_x = 0x10;
-            cpu.reg_y = 0x10;
-            // Indirect X
-            cpu.mem_write(0x52, 0x20);
-            cpu.mem_write(0x53, 0x20);
-            // Indirect Y
-            cpu.mem_write(0x42, 0x20);
-            cpu.mem_write(0x43, 0x20);
-        }
-        InstructionType::STACK => {
-            cpu.reg_a = 0x10;
-            cpu.reg_status.insert(StatusFlags::INTERRUPT_MASK);
-            cpu.stack_push(0x16);
-        }
-        InstructionType::SHIFT => {
-            cpu.reg_a = 0x10;
-            // Addressing modes use this register
-            cpu.reg_x = 0x10;
-            // Zero Page
-            cpu.mem_write(0x10, 0x20);
-            // Zero Page X
-            cpu.mem_write(0x20, 0x20);
-            // Absolute
-            cpu.mem_write(0xF0A0, 0x20);
-            cpu.mem_write(0xF0B0, 0x20);
-        }
-        InstructionType::LOGIC => {
-            cpu.reg_a = 0xB6;
-            // Addressing modes use these two registers
-            cpu.reg_x = 0x10;
-            cpu.reg_y = 0x10;
-            // Zero Page
-            cpu.mem_write(0x10, 0x80);
-            // Zero Page X
-            cpu.mem_write(0x20, 0x80);
-            // Absolute
-            cpu.mem_write(0xF0B0, 0x80);
-            cpu.mem_write(0xF0A0, 0x80);
-            // Indirect X
-            cpu.mem_write(0x52, 0x20);
-            cpu.mem_write(0x53, 0x20);
-            cpu.mem_write(0x2020, 0x80);
-            // Indirect Y
-            cpu.mem_write(0x42, 0x20);
-            cpu.mem_write(0x43, 0x20);
-            cpu.mem_write(0x2030, 0x80);
-        }
-        InstructionType::ARITHMETIC => {
-            cpu.reg_a = 0x10;
-            cpu.reg_status.insert(StatusFlags::CARRY);
-            // Addressing modes use these two registers
-            cpu.reg_x = 0x10;
-            cpu.reg_y = 0x10;
-            // Zero Page
-            cpu.mem_write(0x10, 0x20);
-            // Absolute
-            cpu.mem_write(0xF0B0, 0x20);
-            cpu.mem_write(0xF0A0, 0x20);
-            // Indirect X
-            cpu.mem_write(0x52, 0x20);
-            cpu.mem_write(0x53, 0x20);
-            cpu.mem_write(0x2020, 0x20);
-            // Indirect Y
-            cpu.mem_write(0x42, 0x20);
-            cpu.mem_write(0x43, 0x20);
-            cpu.mem_write(0x2030, 0x20);
-        }
-        InstructionType::INCREMENT => {
-            cpu.reg_x = 0x02;
-            cpu.reg_y = 0x02;
-            // Zero Page
-            cpu.mem_write(0x10, 0x20);
-            // Absolute
-            cpu.mem_write(0xF0B0, 0x20);
-            cpu.mem_write(0xF0A0, 0x20);
-        }
-        InstructionType::CONTROL | InstructionType::BRANCH | InstructionType::FLAG => {}
-    }
-}
+////// Some registers need some values preallocated in registers or memory
+////// before execution in order to test properly
+//fn preallocate_cpu_values(cpu: &mut CPU, inst_type: InstructionType) {
+//    match inst_type {
+//        InstructionType::LOAD => {
+//            cpu.reg_a = 0x10;
+//            cpu.reg_x = 0x10;
+//            cpu.reg_y = 0x10;
+//            // Zero Page
+//            cpu.mem_write(0x10, 0x20);
+//            // Zero Page X, Y
+//            cpu.mem_write(0x20, 0x20);
+//            // Absolute
+//            cpu.mem_write(0xF0A0, 0x20);
+//            cpu.mem_write(0xF0B0, 0x20);
+//            // Indirect X
+//            cpu.mem_write(0x52, 0x20);
+//            cpu.mem_write(0x53, 0x20);
+//            cpu.mem_write(0x2020, 0x20);
+//            // Indirect Y
+//            cpu.mem_write(0x42, 0x20);
+//            cpu.mem_write(0x43, 0x20);
+//            cpu.mem_write(0x2030, 0x20);
+//        }
+//        InstructionType::TRANSFER => {
+//            cpu.reg_a = 0x10;
+//            cpu.reg_sp = 0x10;
+//            cpu.reg_x = 0x10;
+//            cpu.reg_y = 0x10;
+//            // Indirect X
+//            cpu.mem_write(0x52, 0x20);
+//            cpu.mem_write(0x53, 0x20);
+//            // Indirect Y
+//            cpu.mem_write(0x42, 0x20);
+//            cpu.mem_write(0x43, 0x20);
+//        }
+//        InstructionType::STACK => {
+//            cpu.reg_a = 0x10;
+//            cpu.reg_status.insert(StatusFlags::INTERRUPT_MASK);
+//            cpu.stack_push(0x16);
+//        }
+//        InstructionType::SHIFT => {
+//            cpu.reg_a = 0x10;
+//            // Addressing modes use this register
+//            cpu.reg_x = 0x10;
+//            // Zero Page
+//            cpu.mem_write(0x10, 0x20);
+//            // Zero Page X
+//            cpu.mem_write(0x20, 0x20);
+//            // Absolute
+//            cpu.mem_write(0xF0A0, 0x20);
+//            cpu.mem_write(0xF0B0, 0x20);
+//        }
+//        InstructionType::LOGIC => {
+//            cpu.reg_a = 0xB6;
+//            // Addressing modes use these two registers
+//            cpu.reg_x = 0x10;
+//            cpu.reg_y = 0x10;
+//            // Zero Page
+//            cpu.mem_write(0x10, 0x80);
+//            // Zero Page X
+//            cpu.mem_write(0x20, 0x80);
+//            // Absolute
+//            cpu.mem_write(0xF0B0, 0x80);
+//            cpu.mem_write(0xF0A0, 0x80);
+//            // Indirect X
+//            cpu.mem_write(0x52, 0x20);
+//            cpu.mem_write(0x53, 0x20);
+//            cpu.mem_write(0x2020, 0x80);
+//            // Indirect Y
+//            cpu.mem_write(0x42, 0x20);
+//            cpu.mem_write(0x43, 0x20);
+//            cpu.mem_write(0x2030, 0x80);
+//        }
+//        InstructionType::ARITHMETIC => {
+//            cpu.reg_a = 0x10;
+//            cpu.reg_status.insert(StatusFlags::CARRY);
+//            // Addressing modes use these two registers
+//            cpu.reg_x = 0x10;
+//            cpu.reg_y = 0x10;
+//            // Zero Page
+//            cpu.mem_write(0x10, 0x20);
+//            // Absolute
+//            cpu.mem_write(0xF0B0, 0x20);
+//            cpu.mem_write(0xF0A0, 0x20);
+//            // Indirect X
+//            cpu.mem_write(0x52, 0x20);
+//            cpu.mem_write(0x53, 0x20);
+//            cpu.mem_write(0x2020, 0x20);
+//            // Indirect Y
+//            cpu.mem_write(0x42, 0x20);
+//            cpu.mem_write(0x43, 0x20);
+//            cpu.mem_write(0x2030, 0x20);
+//        }
+//        InstructionType::INCREMENT => {
+//            cpu.reg_x = 0x02;
+//            cpu.reg_y = 0x02;
+//            // Zero Page
+//            cpu.mem_write(0x10, 0x20);
+//            // Absolute
+//            cpu.mem_write(0xF0B0, 0x20);
+//            cpu.mem_write(0xF0A0, 0x20);
+//        }
+//        InstructionType::CONTROL | InstructionType::BRANCH | InstructionType::FLAG => {}
+//    }
+//}
 
-// Generates the testing cartridge setup for an addressing mode
-fn generate_test_cart(inst: u8, addr_mode: AddressingMode) -> Vec<u8> {
-    let mut cart = vec![];
-    match addr_mode {
-        AddressingMode::IMM => {
-            cart = vec![inst, 0x20, 0x00];
-        }
-        AddressingMode::ZP | AddressingMode::ZP_X | AddressingMode::ZP_Y => {
-            cart = vec![inst, 0x10, 0x00];
-        }
-        AddressingMode::ABS | AddressingMode::ABS_X | AddressingMode::ABS_Y => {
-            // Remember little endian! address = 0xF0A0
-            cart = vec![inst, 0xA0, 0xF0, 0x00];
-        }
-        AddressingMode::IND_X | AddressingMode::IND_Y => {
-            cart = vec![inst, 0x42, 0x00];
-        }
-        AddressingMode::ACC | AddressingMode::REL | AddressingMode::IMP => {
-            cart = vec![inst, 0x00];
-        }
-    };
-    cart
-}
-#[cfg(test)]
-mod test {
-    use super::*;
-    #[test]
-    fn lda_imm() {
-        let cpu = test_instruction(InstructionType::LOAD, 0xA9, AddressingMode::IMM);
-        assert_eq!(cpu.reg_a, 0x20);
-    }
-    #[test]
-    fn lda_abs() {
-        let cpu = test_instruction(InstructionType::LOAD, 0xAD, AddressingMode::ABS);
-        assert_eq!(cpu.reg_a, 0x20);
-    }
-    #[test]
-    fn lda_abs_x() {
-        let cpu = test_instruction(InstructionType::LOAD, 0xBD, AddressingMode::ABS_X);
-        assert_eq!(cpu.reg_a, 0x20);
-    }
-    #[test]
-    fn lda_abs_y() {
-        let cpu = test_instruction(InstructionType::LOAD, 0xB9, AddressingMode::ABS_Y);
-        assert_eq!(cpu.reg_a, 0x20);
-    }
-    #[test]
-    fn lda_zp() {
-        let cpu = test_instruction(InstructionType::LOAD, 0xA5, AddressingMode::ZP);
-        assert_eq!(cpu.reg_a, 0x20);
-    }
-    #[test]
-    fn lda_zp_x() {
-        let cpu = test_instruction(InstructionType::LOAD, 0xB5, AddressingMode::ZP_X);
-        assert_eq!(cpu.reg_a, 0x20);
-    }
-    #[test]
-    fn lda_ind_x() {
-        let cpu = test_instruction(InstructionType::LOAD, 0xA1, AddressingMode::IND_X);
-        assert_eq!(cpu.reg_a, 0x20);
-    }
-    #[test]
-    fn lda_ind_y() {
-        let cpu = test_instruction(InstructionType::LOAD, 0xB1, AddressingMode::IND_Y);
-        assert_eq!(cpu.reg_a, 0x20);
-    }
-    #[test]
-    fn ldx_imm() {
-        let cpu = test_instruction(InstructionType::LOAD, 0xA2, AddressingMode::IMM);
-        assert_eq!(cpu.reg_x, 0x20);
-    }
-    #[test]
-    fn ldx_abs() {
-        let cpu = test_instruction(InstructionType::LOAD, 0xAE, AddressingMode::ABS);
-        assert_eq!(cpu.reg_x, 0x20);
-    }
-    #[test]
-    fn ldx_abs_y() {
-        let cpu = test_instruction(InstructionType::LOAD, 0xBE, AddressingMode::ABS_Y);
-        assert_eq!(cpu.reg_x, 0x20);
-    }
-    #[test]
-    fn ldx_zp() {
-        let cpu = test_instruction(InstructionType::LOAD, 0xA6, AddressingMode::ZP);
-        assert_eq!(cpu.reg_x, 0x20);
-    }
-    #[test]
-    fn ldx_zp_y() {
-        let cpu = test_instruction(InstructionType::LOAD, 0xB6, AddressingMode::ZP_Y);
-        assert_eq!(cpu.reg_x, 0x20);
-    }
-    #[test]
-    fn ldy_imm() {
-        let cpu = test_instruction(InstructionType::LOAD, 0xA0, AddressingMode::IMM);
-        assert_eq!(cpu.reg_y, 0x20);
-    }
-    #[test]
-    fn ldy_abs() {
-        let cpu = test_instruction(InstructionType::LOAD, 0xAC, AddressingMode::ABS);
-        assert_eq!(cpu.reg_y, 0x20);
-    }
-    #[test]
-    fn ldy_abs_y() {
-        let cpu = test_instruction(InstructionType::LOAD, 0xBC, AddressingMode::ABS_Y);
-        assert_eq!(cpu.reg_y, 0x20);
-    }
-    #[test]
-    fn ldy_zp() {
-        let cpu = test_instruction(InstructionType::LOAD, 0xA4, AddressingMode::ZP);
-        assert_eq!(cpu.reg_y, 0x20);
-    }
-    #[test]
-    fn ldy_zp_x() {
-        let cpu = test_instruction(InstructionType::LOAD, 0xB4, AddressingMode::ZP_X);
-        assert_eq!(cpu.reg_y, 0x20);
-    }
-    #[test]
-    fn sta_abs() {
-        let cpu = test_instruction(InstructionType::TRANSFER, 0x8D, AddressingMode::ABS);
-        assert_eq!(cpu.mem_read(0xF0A0), cpu.reg_a);
-        assert_eq!(cpu.mem_read(0xF0A0), 0x10);
-    }
-    #[test]
-    fn sta_abs_x() {
-        let cpu = test_instruction(InstructionType::TRANSFER, 0x9D, AddressingMode::ABS_X);
-        assert_eq!(cpu.mem_read(0xF0B0), cpu.reg_a);
-        assert_eq!(cpu.mem_read(0xF0B0), 0x10);
-    }
-    #[test]
-    fn sta_abs_y() {
-        let cpu = test_instruction(InstructionType::TRANSFER, 0x99, AddressingMode::ABS_Y);
-        assert_eq!(cpu.mem_read(0xF0B0), cpu.reg_a);
-        assert_eq!(cpu.mem_read(0xF0B0), 0x10);
-    }
-    #[test]
-    fn sta_zp() {
-        let cpu = test_instruction(InstructionType::TRANSFER, 0x85, AddressingMode::ZP);
-        assert_eq!(cpu.mem_read(0x10), cpu.reg_a);
-        assert_eq!(cpu.mem_read(0x10), 0x10);
-    }
-    #[test]
-    fn sta_zp_x() {
-        let cpu = test_instruction(InstructionType::TRANSFER, 0x95, AddressingMode::ZP_X);
-        assert_eq!(cpu.mem_read(0x20), cpu.reg_a);
-        assert_eq!(cpu.mem_read(0x20), 0x10);
-    }
-    #[test]
-    fn sta_ind_x() {
-        let cpu = test_instruction(InstructionType::TRANSFER, 0x81, AddressingMode::IND_X);
-        assert_eq!(cpu.mem_read(0x2020), cpu.reg_a);
-        assert_eq!(cpu.mem_read(0x2020), 0x10);
-    }
-    #[test]
-    fn sta_ind_y() {
-        let cpu = test_instruction(InstructionType::TRANSFER, 0x91, AddressingMode::IND_Y);
-        assert_eq!(cpu.mem_read(0x2030), cpu.reg_a);
-        assert_eq!(cpu.mem_read(0x2030), 0x10);
-    }
-    #[test]
-    fn stx_abs() {
-        let cpu = test_instruction(InstructionType::TRANSFER, 0x8E, AddressingMode::ABS);
-        assert_eq!(cpu.mem_read(0xF0A0), cpu.reg_x);
-        assert_eq!(cpu.mem_read(0xF0A0), 0x10);
-    }
-    #[test]
-    fn stx_zp() {
-        let cpu = test_instruction(InstructionType::TRANSFER, 0x86, AddressingMode::ZP);
-        assert_eq!(cpu.mem_read(0x10), cpu.reg_x);
-        assert_eq!(cpu.mem_read(0x10), 0x10);
-    }
-    #[test]
-    fn stx_zp_y() {
-        let cpu = test_instruction(InstructionType::TRANSFER, 0x96, AddressingMode::ZP_Y);
-        assert_eq!(cpu.mem_read(0x20), cpu.reg_x);
-        assert_eq!(cpu.mem_read(0x20), 0x10);
-    }
-    #[test]
-    fn sty_abs() {
-        let cpu = test_instruction(InstructionType::TRANSFER, 0x8C, AddressingMode::ABS);
-        assert_eq!(cpu.mem_read(0xF0A0), cpu.reg_x);
-        assert_eq!(cpu.mem_read(0xF0A0), 0x10);
-    }
-    #[test]
-    fn sty_zp() {
-        let cpu = test_instruction(InstructionType::TRANSFER, 0x84, AddressingMode::ZP);
-        assert_eq!(cpu.mem_read(0x10), cpu.reg_y);
-        assert_eq!(cpu.mem_read(0x10), 0x10);
-    }
-    #[test]
-    fn sty_zp_y() {
-        let cpu = test_instruction(InstructionType::TRANSFER, 0x94, AddressingMode::ZP_X);
-        assert_eq!(cpu.mem_read(0x20), cpu.reg_y);
-        assert_eq!(cpu.mem_read(0x20), 0x10);
-    }
-    #[test]
-    fn tax_imp() {
-        let cpu = test_instruction(InstructionType::TRANSFER, 0xAA, AddressingMode::IMP);
-        // A and X are given the same value in test setup, so comparing them
-        // doesn't really verify the test environment ran successfully.
-        //
-        // We can atleast check the PC moved post instruction.
-        //
-        // Too lazy to change test setup values for a set of instructions that
-        // have straightforward execution anyway.
-        //
-        // Pretty much the same deal for the rest of the transfer instructions.
-        assert_eq!(cpu.reg_x, cpu.reg_a);
-        assert_eq!(cpu.reg_pc, 0x8002);
-    }
-    #[test]
-    fn tay_imp() {
-        let cpu = test_instruction(InstructionType::TRANSFER, 0xA8, AddressingMode::IMP);
-        assert_eq!(cpu.reg_y, cpu.reg_a);
-        assert_eq!(cpu.reg_pc, 0x8002);
-    }
-    #[test]
-    fn tsx_imp() {
-        let cpu = test_instruction(InstructionType::TRANSFER, 0xBA, AddressingMode::IMP);
-        assert_eq!(cpu.reg_x, cpu.reg_sp);
-        assert_eq!(cpu.reg_pc, 0x8002);
-    }
-    #[test]
-    fn txa_imp() {
-        let cpu = test_instruction(InstructionType::TRANSFER, 0x8A, AddressingMode::IMP);
-        assert_eq!(cpu.reg_a, cpu.reg_x);
-        assert_eq!(cpu.reg_pc, 0x8002);
-    }
-    #[test]
-    fn txs_imp() {
-        let cpu = test_instruction(InstructionType::TRANSFER, 0x9A, AddressingMode::IMP);
-        assert_eq!(cpu.reg_sp, cpu.reg_x);
-        assert_eq!(cpu.reg_pc, 0x8002);
-    }
-    #[test]
-    fn tya_imp() {
-        let cpu = test_instruction(InstructionType::TRANSFER, 0x98, AddressingMode::IMP);
-        assert_eq!(cpu.reg_a, cpu.reg_y);
-        assert_eq!(cpu.reg_pc, 0x8002);
-    }
-    #[test]
-    fn pha_imp() {
-        let cpu = test_instruction(InstructionType::STACK, 0x48, AddressingMode::IMP);
-        assert_eq!(cpu.mem_read(STACK + cpu.reg_sp as u16 + 1), cpu.reg_a);
-    }
-    #[test]
-    fn php_imp() {
-        let mut cpu = test_instruction(InstructionType::STACK, 0x08, AddressingMode::IMP);
-        // PHP clones reg_status then sets BRK and BRK_2, so they need to be set in the test too.
-        cpu.reg_status.insert(StatusFlags::BREAK);
-        cpu.reg_status.insert(StatusFlags::BREAK_2);
-        assert_eq!(
-            cpu.mem_read(STACK + cpu.reg_sp as u16 + 1),
-            cpu.reg_status.bits()
-        );
-    }
-    #[test]
-    fn pla_imp() {
-        let cpu = test_instruction(InstructionType::STACK, 0x68, AddressingMode::IMP);
-        assert_ne!(cpu.reg_a, 0x10);
-        assert_eq!(cpu.reg_a, 0x16);
-    }
-    #[test]
-    fn plp_imp() {
-        let cpu = test_instruction(InstructionType::STACK, 0x28, AddressingMode::IMP);
-        assert_eq!(cpu.reg_status.bits(), 0x16);
-    }
-    #[test]
-    fn asl_acc() {
-        let cpu = test_instruction(InstructionType::SHIFT, 0x0A, AddressingMode::ACC);
-        assert_ne!(cpu.reg_a, 0x10);
-        assert_eq!(cpu.reg_a, 0x20);
-    }
-    #[test]
-    fn asl_abs() {
-        let cpu = test_instruction(InstructionType::SHIFT, 0x0E, AddressingMode::ABS);
-        assert_eq!(cpu.mem_read(0xF0A0), 0x40);
-    }
-    #[test]
-    fn asl_abs_x() {
-        let cpu = test_instruction(InstructionType::SHIFT, 0x1E, AddressingMode::ABS_X);
-        assert_eq!(cpu.mem_read(0xF0B0), 0x40);
-    }
-    #[test]
-    fn asl_zp() {
-        let cpu = test_instruction(InstructionType::SHIFT, 0x06, AddressingMode::ZP);
-        assert_eq!(cpu.mem_read(0x10), 0x40);
-    }
-    #[test]
-    fn asl_zp_x() {
-        let cpu = test_instruction(InstructionType::SHIFT, 0x16, AddressingMode::ZP_X);
-        assert_eq!(cpu.mem_read(0x20), 0x40);
-    }
-    #[test]
-    fn lsr_acc() {
-        let cpu = test_instruction(InstructionType::SHIFT, 0x4A, AddressingMode::ACC);
-        assert_eq!(cpu.reg_a, 0x08);
-    }
-    #[test]
-    fn lsr_abs() {
-        let cpu = test_instruction(InstructionType::SHIFT, 0x4E, AddressingMode::ABS);
-        assert_eq!(cpu.mem_read(0xF0A0), 0x10);
-    }
-    #[test]
-    fn lsr_abs_x() {
-        let cpu = test_instruction(InstructionType::SHIFT, 0x5E, AddressingMode::ABS_X);
-        assert_eq!(cpu.mem_read(0xF0B0), 0x10);
-    }
-    #[test]
-    fn lsr_zp() {
-        let cpu = test_instruction(InstructionType::SHIFT, 0x46, AddressingMode::ZP);
-        assert_eq!(cpu.mem_read(0x10), 0x10);
-    }
-    #[test]
-    fn lsr_zp_x() {
-        let cpu = test_instruction(InstructionType::SHIFT, 0x56, AddressingMode::ZP_X);
-        assert_eq!(cpu.mem_read(0x20), 0x10);
-    }
-    #[test]
-    fn rol_acc() {
-        let cpu = test_instruction(InstructionType::SHIFT, 0x2A, AddressingMode::ACC);
-        assert_eq!(cpu.reg_a, 0x10);
-    }
-    #[test]
-    fn rol_abs() {
-        let cpu = test_instruction(InstructionType::SHIFT, 0x2E, AddressingMode::ABS);
-        assert_eq!(cpu.mem_read(0xF0A0), 0x40);
-    }
-    #[test]
-    fn rol_abs_x() {
-        let cpu = test_instruction(InstructionType::SHIFT, 0x3E, AddressingMode::ABS_X);
-        assert_eq!(cpu.mem_read(0xF0B0), 0x40);
-    }
-    #[test]
-    fn rol_zp() {
-        let cpu = test_instruction(InstructionType::SHIFT, 0x26, AddressingMode::ZP);
-        assert_eq!(cpu.mem_read(0x10), 0x40);
-    }
-    #[test]
-    fn rol_zp_x() {
-        let cpu = test_instruction(InstructionType::SHIFT, 0x36, AddressingMode::ZP_X);
-        assert_eq!(cpu.mem_read(0x20), 0x40);
-    }
-    #[test]
-    fn ror_acc() {
-        let cpu = test_instruction(InstructionType::SHIFT, 0x4A, AddressingMode::ACC);
-        assert_eq!(cpu.reg_a, 0x08);
-    }
-    #[test]
-    fn ror_abs() {
-        let cpu = test_instruction(InstructionType::SHIFT, 0x4E, AddressingMode::ABS);
-        assert_eq!(cpu.mem_read(0xF0A0), 0x10);
-    }
-    #[test]
-    fn ror_abs_x() {
-        let cpu = test_instruction(InstructionType::SHIFT, 0x5E, AddressingMode::ABS_X);
-        assert_eq!(cpu.mem_read(0xF0B0), 0x10);
-    }
-    #[test]
-    fn ror_zp() {
-        let cpu = test_instruction(InstructionType::SHIFT, 0x46, AddressingMode::ZP);
-        assert_eq!(cpu.mem_read(0x10), 0x10);
-    }
-    #[test]
-    fn ror_zp_x() {
-        let cpu = test_instruction(InstructionType::SHIFT, 0x56, AddressingMode::ZP_X);
-        assert_eq!(cpu.mem_read(0x20), 0x10);
-    }
-    #[test]
-    fn and_imm() {
-        let cpu = test_instruction(InstructionType::LOGIC, 0x29, AddressingMode::IMM);
-        assert_eq!(cpu.reg_a, 0x20);
-    }
-    #[test]
-    fn and_abs() {
-        let cpu = test_instruction(InstructionType::LOGIC, 0x2D, AddressingMode::ABS);
-        assert_eq!(cpu.reg_a, 0x80);
-    }
-    #[test]
-    fn and_abs_x() {
-        let cpu = test_instruction(InstructionType::LOGIC, 0x3D, AddressingMode::ABS_X);
-        assert_eq!(cpu.reg_a, 0x80);
-    }
-    #[test]
-    fn and_abs_y() {
-        let cpu = test_instruction(InstructionType::LOGIC, 0x39, AddressingMode::ABS_Y);
-        assert_eq!(cpu.reg_a, 0x80);
-    }
-    #[test]
-    fn and_zp() {
-        let cpu = test_instruction(InstructionType::LOGIC, 0x25, AddressingMode::ZP);
-        assert_eq!(cpu.reg_a, 0x80);
-    }
-    #[test]
-    fn and_zp_x() {
-        let cpu = test_instruction(InstructionType::LOGIC, 0x35, AddressingMode::ZP_X);
-        assert_eq!(cpu.reg_a, 0x80);
-    }
-    #[test]
-    fn and_ind_x() {
-        let cpu = test_instruction(InstructionType::LOGIC, 0x21, AddressingMode::IND_X);
-        assert_eq!(cpu.reg_a, 0x80);
-    }
-    #[test]
-    fn and_ind_y() {
-        let cpu = test_instruction(InstructionType::LOGIC, 0x31, AddressingMode::IND_Y);
-        assert_eq!(cpu.reg_a, 0x80);
-    }
-    #[test]
-    fn bit_abs() {
-        let cpu = test_instruction(InstructionType::LOGIC, 0x2C, AddressingMode::ABS);
-        // Whether NEGATIVE flag is not set (intended behaviour) in reg_status
-        assert_eq!(cpu.reg_status.contains(StatusFlags::ZERO), false);
-        // 0x80 (target value) sets the last bit, so NEGATIVE = true
-        assert_eq!(cpu.reg_status.contains(StatusFlags::NEGATIVE), true);
-        assert_eq!(cpu.reg_status.contains(StatusFlags::OVERFLOW), false);
-    }
-    #[test]
-    fn bit_zp() {
-        let cpu = test_instruction(InstructionType::LOGIC, 0x24, AddressingMode::ZP);
-        assert_eq!(cpu.reg_status.contains(StatusFlags::ZERO), false);
-        assert_eq!(cpu.reg_status.contains(StatusFlags::NEGATIVE), true);
-        assert_eq!(cpu.reg_status.contains(StatusFlags::OVERFLOW), false);
-    }
-    #[test]
-    fn eor_imm() {
-        let cpu = test_instruction(InstructionType::LOGIC, 0x49, AddressingMode::IMM);
-        assert_eq!(cpu.reg_a, 0x96);
-    }
-    #[test]
-    fn eor_abs() {
-        let cpu = test_instruction(InstructionType::LOGIC, 0x4D, AddressingMode::ABS);
-        assert_eq!(cpu.reg_a, 0x36);
-    }
-    #[test]
-    fn eor_abs_x() {
-        let cpu = test_instruction(InstructionType::LOGIC, 0x5D, AddressingMode::ABS_X);
-        assert_eq!(cpu.reg_a, 0x36);
-    }
-    #[test]
-    fn eor_abs_y() {
-        let cpu = test_instruction(InstructionType::LOGIC, 0x59, AddressingMode::ABS_Y);
-        assert_eq!(cpu.reg_a, 0x36);
-    }
-    #[test]
-    fn eor_zp() {
-        let cpu = test_instruction(InstructionType::LOGIC, 0x45, AddressingMode::ZP);
-        assert_eq!(cpu.reg_a, 0x36);
-    }
-    #[test]
-    fn eor_zp_x() {
-        let cpu = test_instruction(InstructionType::LOGIC, 0x55, AddressingMode::ZP_X);
-        assert_eq!(cpu.reg_a, 0x36);
-    }
-    #[test]
-    fn eor_ind_x() {
-        let cpu = test_instruction(InstructionType::LOGIC, 0x41, AddressingMode::IND_X);
-        assert_eq!(cpu.reg_a, 0x36);
-    }
-    #[test]
-    fn eor_ind_y() {
-        let cpu = test_instruction(InstructionType::LOGIC, 0x51, AddressingMode::IND_Y);
-        assert_eq!(cpu.reg_a, 0x36);
-    }
-    #[test]
-    fn ora_imm() {
-        let cpu = test_instruction(InstructionType::LOGIC, 0x09, AddressingMode::IMM);
-        assert_eq!(cpu.reg_a, 0xB6);
-    }
-    #[test]
-    fn ora_abs() {
-        let cpu = test_instruction(InstructionType::LOGIC, 0x0D, AddressingMode::ABS);
-        assert_eq!(cpu.reg_a, 0xB6);
-    }
-    #[test]
-    fn ora_abs_x() {
-        let cpu = test_instruction(InstructionType::LOGIC, 0x1D, AddressingMode::ABS_X);
-        assert_eq!(cpu.reg_a, 0xB6);
-    }
-    #[test]
-    fn ora_abs_y() {
-        let cpu = test_instruction(InstructionType::LOGIC, 0x19, AddressingMode::ABS_Y);
-        assert_eq!(cpu.reg_a, 0xB6);
-    }
-    #[test]
-    fn ora_zp() {
-        let cpu = test_instruction(InstructionType::LOGIC, 0x05, AddressingMode::ZP);
-        assert_eq!(cpu.reg_a, 0xB6);
-    }
-    #[test]
-    fn ora_zp_x() {
-        let cpu = test_instruction(InstructionType::LOGIC, 0x15, AddressingMode::ZP_X);
-        assert_eq!(cpu.reg_a, 0xB6);
-    }
-    #[test]
-    fn ora_ind_x() {
-        let cpu = test_instruction(InstructionType::LOGIC, 0x01, AddressingMode::IND_X);
-        assert_eq!(cpu.reg_a, 0xB6);
-    }
-    #[test]
-    fn ora_ind_y() {
-        let cpu = test_instruction(InstructionType::LOGIC, 0x11, AddressingMode::IND_Y);
-        assert_eq!(cpu.reg_a, 0xB6);
-    }
-}
+////// Generates the testing cartridge setup for an addressing mode
+//fn generate_test_cart(inst: u8, addr_mode: AddressingMode) -> Vec<u8> {
+//    let mut cart = vec![];
+//    match addr_mode {
+//        AddressingMode::IMM => {
+//            cart = vec![inst, 0x20, 0x00];
+//        }
+//        AddressingMode::ZP | AddressingMode::ZP_X | AddressingMode::ZP_Y => {
+//            cart = vec![inst, 0x10, 0x00];
+//        }
+//        AddressingMode::ABS | AddressingMode::ABS_X | AddressingMode::ABS_Y => {
+//            // Remember little endian! address = 0xF0A0
+//            cart = vec![inst, 0xA0, 0xF0, 0x00];
+//        }
+//        AddressingMode::IND_X | AddressingMode::IND_Y => {
+//            cart = vec![inst, 0x42, 0x00];
+//        }
+//        AddressingMode::ACC | AddressingMode::REL | AddressingMode::IMP => {
+//            cart = vec![inst, 0x00];
+//        }
+//    };
+//    cart
+//}
+//#[cfg(test)]
+//mod test_cpu {
+//    use super::*;
+//    #[test]
+//    fn lda_imm() {
+//        let cpu = test_instruction(InstructionType::LOAD, 0xA9, AddressingMode::IMM);
+//        assert_eq!(cpu.reg_a, 0x20);
+//    }
+//    #[test]
+//    fn lda_abs() {
+//        let cpu = test_instruction(InstructionType::LOAD, 0xAD, AddressingMode::ABS);
+//        assert_eq!(cpu.reg_a, 0x20);
+//    }
+//    #[test]
+//    fn lda_abs_x() {
+//        let cpu = test_instruction(InstructionType::LOAD, 0xBD, AddressingMode::ABS_X);
+//        assert_eq!(cpu.reg_a, 0x20);
+//    }
+//    #[test]
+//    fn lda_abs_y() {
+//        let cpu = test_instruction(InstructionType::LOAD, 0xB9, AddressingMode::ABS_Y);
+//        assert_eq!(cpu.reg_a, 0x20);
+//    }
+//    #[test]
+//    fn lda_zp() {
+//        let cpu = test_instruction(InstructionType::LOAD, 0xA5, AddressingMode::ZP);
+//        assert_eq!(cpu.reg_a, 0x20);
+//    }
+//    #[test]
+//    fn lda_zp_x() {
+//        let cpu = test_instruction(InstructionType::LOAD, 0xB5, AddressingMode::ZP_X);
+//        assert_eq!(cpu.reg_a, 0x20);
+//    }
+//    #[test]
+//    fn lda_ind_x() {
+//        let cpu = test_instruction(InstructionType::LOAD, 0xA1, AddressingMode::IND_X);
+//        assert_eq!(cpu.reg_a, 0x20);
+//    }
+//    #[test]
+//    fn lda_ind_y() {
+//        let cpu = test_instruction(InstructionType::LOAD, 0xB1, AddressingMode::IND_Y);
+//        assert_eq!(cpu.reg_a, 0x20);
+//    }
+//    #[test]
+//    fn ldx_imm() {
+//        let cpu = test_instruction(InstructionType::LOAD, 0xA2, AddressingMode::IMM);
+//        assert_eq!(cpu.reg_x, 0x20);
+//    }
+//    #[test]
+//    fn ldx_abs() {
+//        let cpu = test_instruction(InstructionType::LOAD, 0xAE, AddressingMode::ABS);
+//        assert_eq!(cpu.reg_x, 0x20);
+//    }
+//    #[test]
+//    fn ldx_abs_y() {
+//        let cpu = test_instruction(InstructionType::LOAD, 0xBE, AddressingMode::ABS_Y);
+//        assert_eq!(cpu.reg_x, 0x20);
+//    }
+//    #[test]
+//    fn ldx_zp() {
+//        let cpu = test_instruction(InstructionType::LOAD, 0xA6, AddressingMode::ZP);
+//        assert_eq!(cpu.reg_x, 0x20);
+//    }
+//    #[test]
+//    fn ldx_zp_y() {
+//        let cpu = test_instruction(InstructionType::LOAD, 0xB6, AddressingMode::ZP_Y);
+//        assert_eq!(cpu.reg_x, 0x20);
+//    }
+//    #[test]
+//    fn ldy_imm() {
+//        let cpu = test_instruction(InstructionType::LOAD, 0xA0, AddressingMode::IMM);
+//        assert_eq!(cpu.reg_y, 0x20);
+//    }
+//    #[test]
+//    fn ldy_abs() {
+//        let cpu = test_instruction(InstructionType::LOAD, 0xAC, AddressingMode::ABS);
+//        assert_eq!(cpu.reg_y, 0x20);
+//    }
+//    #[test]
+//    fn ldy_abs_y() {
+//        let cpu = test_instruction(InstructionType::LOAD, 0xBC, AddressingMode::ABS_Y);
+//        assert_eq!(cpu.reg_y, 0x20);
+//    }
+//    #[test]
+//    fn ldy_zp() {
+//        let cpu = test_instruction(InstructionType::LOAD, 0xA4, AddressingMode::ZP);
+//        assert_eq!(cpu.reg_y, 0x20);
+//    }
+//    #[test]
+//    fn ldy_zp_x() {
+//        let cpu = test_instruction(InstructionType::LOAD, 0xB4, AddressingMode::ZP_X);
+//        assert_eq!(cpu.reg_y, 0x20);
+//    }
+//    #[test]
+//    fn sta_abs() {
+//        let cpu = test_instruction(InstructionType::TRANSFER, 0x8D, AddressingMode::ABS);
+//        assert_eq!(cpu.mem_read(0xF0A0), cpu.reg_a);
+//        assert_eq!(cpu.mem_read(0xF0A0), 0x10);
+//    }
+//    #[test]
+//    fn sta_abs_x() {
+//        let cpu = test_instruction(InstructionType::TRANSFER, 0x9D, AddressingMode::ABS_X);
+//        assert_eq!(cpu.mem_read(0xF0B0), cpu.reg_a);
+//        assert_eq!(cpu.mem_read(0xF0B0), 0x10);
+//    }
+//    #[test]
+//    fn sta_abs_y() {
+//        let cpu = test_instruction(InstructionType::TRANSFER, 0x99, AddressingMode::ABS_Y);
+//        assert_eq!(cpu.mem_read(0xF0B0), cpu.reg_a);
+//        assert_eq!(cpu.mem_read(0xF0B0), 0x10);
+//    }
+//    #[test]
+//    fn sta_zp() {
+//        let cpu = test_instruction(InstructionType::TRANSFER, 0x85, AddressingMode::ZP);
+//        assert_eq!(cpu.mem_read(0x10), cpu.reg_a);
+//        assert_eq!(cpu.mem_read(0x10), 0x10);
+//    }
+//    #[test]
+//    fn sta_zp_x() {
+//        let cpu = test_instruction(InstructionType::TRANSFER, 0x95, AddressingMode::ZP_X);
+//        assert_eq!(cpu.mem_read(0x20), cpu.reg_a);
+//        assert_eq!(cpu.mem_read(0x20), 0x10);
+//    }
+//    #[test]
+//    fn sta_ind_x() {
+//        let cpu = test_instruction(InstructionType::TRANSFER, 0x81, AddressingMode::IND_X);
+//        assert_eq!(cpu.mem_read(0x2020), cpu.reg_a);
+//        assert_eq!(cpu.mem_read(0x2020), 0x10);
+//    }
+//    #[test]
+//    fn sta_ind_y() {
+//        let cpu = test_instruction(InstructionType::TRANSFER, 0x91, AddressingMode::IND_Y);
+//        assert_eq!(cpu.mem_read(0x2030), cpu.reg_a);
+//        assert_eq!(cpu.mem_read(0x2030), 0x10);
+//    }
+//    #[test]
+//    fn stx_abs() {
+//        let cpu = test_instruction(InstructionType::TRANSFER, 0x8E, AddressingMode::ABS);
+//        assert_eq!(cpu.mem_read(0xF0A0), cpu.reg_x);
+//        assert_eq!(cpu.mem_read(0xF0A0), 0x10);
+//    }
+//    #[test]
+//    fn stx_zp() {
+//        let cpu = test_instruction(InstructionType::TRANSFER, 0x86, AddressingMode::ZP);
+//        assert_eq!(cpu.mem_read(0x10), cpu.reg_x);
+//        assert_eq!(cpu.mem_read(0x10), 0x10);
+//    }
+//    #[test]
+//    fn stx_zp_y() {
+//        let cpu = test_instruction(InstructionType::TRANSFER, 0x96, AddressingMode::ZP_Y);
+//        assert_eq!(cpu.mem_read(0x20), cpu.reg_x);
+//        assert_eq!(cpu.mem_read(0x20), 0x10);
+//    }
+//    #[test]
+//    fn sty_abs() {
+//        let cpu = test_instruction(InstructionType::TRANSFER, 0x8C, AddressingMode::ABS);
+//        assert_eq!(cpu.mem_read(0xF0A0), cpu.reg_x);
+//        assert_eq!(cpu.mem_read(0xF0A0), 0x10);
+//    }
+//    #[test]
+//    fn sty_zp() {
+//        let cpu = test_instruction(InstructionType::TRANSFER, 0x84, AddressingMode::ZP);
+//        assert_eq!(cpu.mem_read(0x10), cpu.reg_y);
+//        assert_eq!(cpu.mem_read(0x10), 0x10);
+//    }
+//    #[test]
+//    fn sty_zp_y() {
+//        let cpu = test_instruction(InstructionType::TRANSFER, 0x94, AddressingMode::ZP_X);
+//        assert_eq!(cpu.mem_read(0x20), cpu.reg_y);
+//        assert_eq!(cpu.mem_read(0x20), 0x10);
+//    }
+//    #[test]
+//    fn tax_imp() {
+//        let cpu = test_instruction(InstructionType::TRANSFER, 0xAA, AddressingMode::IMP);
+//        // A and X are given the same value in test setup, so comparing them
+//        // doesn't really verify the test environment ran successfully.
+//        //
+//        // We can atleast check the PC moved post instruction.
+//        //
+//        // Too lazy to change test setup values for a set of instructions that
+//        // have straightforward execution anyway.
+//        //
+//        // Pretty much the same deal for the rest of the transfer instructions.
+//        assert_eq!(cpu.reg_x, cpu.reg_a);
+//        assert_eq!(cpu.reg_pc, 0x8002);
+//    }
+//    #[test]
+//    fn tay_imp() {
+//        let cpu = test_instruction(InstructionType::TRANSFER, 0xA8, AddressingMode::IMP);
+//        assert_eq!(cpu.reg_y, cpu.reg_a);
+//        assert_eq!(cpu.reg_pc, 0x8002);
+//    }
+//    #[test]
+//    fn tsx_imp() {
+//        let cpu = test_instruction(InstructionType::TRANSFER, 0xBA, AddressingMode::IMP);
+//        assert_eq!(cpu.reg_x, cpu.reg_sp);
+//        assert_eq!(cpu.reg_pc, 0x8002);
+//    }
+//    #[test]
+//    fn txa_imp() {
+//        let cpu = test_instruction(InstructionType::TRANSFER, 0x8A, AddressingMode::IMP);
+//        assert_eq!(cpu.reg_a, cpu.reg_x);
+//        assert_eq!(cpu.reg_pc, 0x8002);
+//    }
+//    #[test]
+//    fn txs_imp() {
+//        let cpu = test_instruction(InstructionType::TRANSFER, 0x9A, AddressingMode::IMP);
+//        assert_eq!(cpu.reg_sp, cpu.reg_x);
+//        assert_eq!(cpu.reg_pc, 0x8002);
+//    }
+//    #[test]
+//    fn tya_imp() {
+//        let cpu = test_instruction(InstructionType::TRANSFER, 0x98, AddressingMode::IMP);
+//        assert_eq!(cpu.reg_a, cpu.reg_y);
+//        assert_eq!(cpu.reg_pc, 0x8002);
+//    }
+//    #[test]
+//    fn pha_imp() {
+//        let cpu = test_instruction(InstructionType::STACK, 0x48, AddressingMode::IMP);
+//        assert_eq!(cpu.mem_read(STACK + cpu.reg_sp as u16 + 1), cpu.reg_a);
+//    }
+//    #[test]
+//    fn php_imp() {
+//        let mut cpu = test_instruction(InstructionType::STACK, 0x08, AddressingMode::IMP);
+//        // PHP clones reg_status then sets BRK and BRK_2, so they need to be set in the test too.
+//        cpu.reg_status.insert(StatusFlags::BREAK);
+//        cpu.reg_status.insert(StatusFlags::BREAK_2);
+//        assert_eq!(
+//            cpu.mem_read(STACK + cpu.reg_sp as u16 + 1),
+//            cpu.reg_status.bits()
+//        );
+//    }
+//    #[test]
+//    fn pla_imp() {
+//        let cpu = test_instruction(InstructionType::STACK, 0x68, AddressingMode::IMP);
+//        assert_ne!(cpu.reg_a, 0x10);
+//        assert_eq!(cpu.reg_a, 0x16);
+//    }
+//    #[test]
+//    fn plp_imp() {
+//        let cpu = test_instruction(InstructionType::STACK, 0x28, AddressingMode::IMP);
+//        assert_eq!(cpu.reg_status.bits(), 0x16);
+//    }
+//    #[test]
+//    fn asl_acc() {
+//        let cpu = test_instruction(InstructionType::SHIFT, 0x0A, AddressingMode::ACC);
+//        assert_ne!(cpu.reg_a, 0x10);
+//        assert_eq!(cpu.reg_a, 0x20);
+//    }
+//    #[test]
+//    fn asl_abs() {
+//        let cpu = test_instruction(InstructionType::SHIFT, 0x0E, AddressingMode::ABS);
+//        assert_eq!(cpu.mem_read(0xF0A0), 0x40);
+//    }
+//    #[test]
+//    fn asl_abs_x() {
+//        let cpu = test_instruction(InstructionType::SHIFT, 0x1E, AddressingMode::ABS_X);
+//        assert_eq!(cpu.mem_read(0xF0B0), 0x40);
+//    }
+//    #[test]
+//    fn asl_zp() {
+//        let cpu = test_instruction(InstructionType::SHIFT, 0x06, AddressingMode::ZP);
+//        assert_eq!(cpu.mem_read(0x10), 0x40);
+//    }
+//    #[test]
+//    fn asl_zp_x() {
+//        let cpu = test_instruction(InstructionType::SHIFT, 0x16, AddressingMode::ZP_X);
+//        assert_eq!(cpu.mem_read(0x20), 0x40);
+//    }
+//    #[test]
+//    fn lsr_acc() {
+//        let cpu = test_instruction(InstructionType::SHIFT, 0x4A, AddressingMode::ACC);
+//        assert_eq!(cpu.reg_a, 0x08);
+//    }
+//    #[test]
+//    fn lsr_abs() {
+//        let cpu = test_instruction(InstructionType::SHIFT, 0x4E, AddressingMode::ABS);
+//        assert_eq!(cpu.mem_read(0xF0A0), 0x10);
+//    }
+//    #[test]
+//    fn lsr_abs_x() {
+//        let cpu = test_instruction(InstructionType::SHIFT, 0x5E, AddressingMode::ABS_X);
+//        assert_eq!(cpu.mem_read(0xF0B0), 0x10);
+//    }
+//    #[test]
+//    fn lsr_zp() {
+//        let cpu = test_instruction(InstructionType::SHIFT, 0x46, AddressingMode::ZP);
+//        assert_eq!(cpu.mem_read(0x10), 0x10);
+//    }
+//    #[test]
+//    fn lsr_zp_x() {
+//        let cpu = test_instruction(InstructionType::SHIFT, 0x56, AddressingMode::ZP_X);
+//        assert_eq!(cpu.mem_read(0x20), 0x10);
+//    }
+//    #[test]
+//    fn rol_acc() {
+//        let cpu = test_instruction(InstructionType::SHIFT, 0x2A, AddressingMode::ACC);
+//        assert_eq!(cpu.reg_a, 0x10);
+//    }
+//    #[test]
+//    fn rol_abs() {
+//        let cpu = test_instruction(InstructionType::SHIFT, 0x2E, AddressingMode::ABS);
+//        assert_eq!(cpu.mem_read(0xF0A0), 0x40);
+//    }
+//    #[test]
+//    fn rol_abs_x() {
+//        let cpu = test_instruction(InstructionType::SHIFT, 0x3E, AddressingMode::ABS_X);
+//        assert_eq!(cpu.mem_read(0xF0B0), 0x40);
+//    }
+//    #[test]
+//    fn rol_zp() {
+//        let cpu = test_instruction(InstructionType::SHIFT, 0x26, AddressingMode::ZP);
+//        assert_eq!(cpu.mem_read(0x10), 0x40);
+//    }
+//    #[test]
+//    fn rol_zp_x() {
+//        let cpu = test_instruction(InstructionType::SHIFT, 0x36, AddressingMode::ZP_X);
+//        assert_eq!(cpu.mem_read(0x20), 0x40);
+//    }
+//    #[test]
+//    fn ror_acc() {
+//        let cpu = test_instruction(InstructionType::SHIFT, 0x4A, AddressingMode::ACC);
+//        assert_eq!(cpu.reg_a, 0x08);
+//    }
+//    #[test]
+//    fn ror_abs() {
+//        let cpu = test_instruction(InstructionType::SHIFT, 0x4E, AddressingMode::ABS);
+//        assert_eq!(cpu.mem_read(0xF0A0), 0x10);
+//    }
+//    #[test]
+//    fn ror_abs_x() {
+//        let cpu = test_instruction(InstructionType::SHIFT, 0x5E, AddressingMode::ABS_X);
+//        assert_eq!(cpu.mem_read(0xF0B0), 0x10);
+//    }
+//    #[test]
+//    fn ror_zp() {
+//        let cpu = test_instruction(InstructionType::SHIFT, 0x46, AddressingMode::ZP);
+//        assert_eq!(cpu.mem_read(0x10), 0x10);
+//    }
+//    #[test]
+//    fn ror_zp_x() {
+//        let cpu = test_instruction(InstructionType::SHIFT, 0x56, AddressingMode::ZP_X);
+//        assert_eq!(cpu.mem_read(0x20), 0x10);
+//    }
+//    #[test]
+//    fn and_imm() {
+//        let cpu = test_instruction(InstructionType::LOGIC, 0x29, AddressingMode::IMM);
+//        assert_eq!(cpu.reg_a, 0x20);
+//    }
+//    #[test]
+//    fn and_abs() {
+//        let cpu = test_instruction(InstructionType::LOGIC, 0x2D, AddressingMode::ABS);
+//        assert_eq!(cpu.reg_a, 0x80);
+//    }
+//    #[test]
+//    fn and_abs_x() {
+//        let cpu = test_instruction(InstructionType::LOGIC, 0x3D, AddressingMode::ABS_X);
+//        assert_eq!(cpu.reg_a, 0x80);
+//    }
+//    #[test]
+//    fn and_abs_y() {
+//        let cpu = test_instruction(InstructionType::LOGIC, 0x39, AddressingMode::ABS_Y);
+//        assert_eq!(cpu.reg_a, 0x80);
+//    }
+//    #[test]
+//    fn and_zp() {
+//        let cpu = test_instruction(InstructionType::LOGIC, 0x25, AddressingMode::ZP);
+//        assert_eq!(cpu.reg_a, 0x80);
+//    }
+//    #[test]
+//    fn and_zp_x() {
+//        let cpu = test_instruction(InstructionType::LOGIC, 0x35, AddressingMode::ZP_X);
+//        assert_eq!(cpu.reg_a, 0x80);
+//    }
+//    #[test]
+//    fn and_ind_x() {
+//        let cpu = test_instruction(InstructionType::LOGIC, 0x21, AddressingMode::IND_X);
+//        assert_eq!(cpu.reg_a, 0x80);
+//    }
+//    #[test]
+//    fn and_ind_y() {
+//        let cpu = test_instruction(InstructionType::LOGIC, 0x31, AddressingMode::IND_Y);
+//        assert_eq!(cpu.reg_a, 0x80);
+//    }
+//    #[test]
+//    fn bit_abs() {
+//        let cpu = test_instruction(InstructionType::LOGIC, 0x2C, AddressingMode::ABS);
+//        // Whether NEGATIVE flag is not set (intended behaviour) in reg_status
+//        assert_eq!(cpu.reg_status.contains(StatusFlags::ZERO), false);
+//        // 0x80 (target value) sets the last bit, so NEGATIVE = true
+//        assert_eq!(cpu.reg_status.contains(StatusFlags::NEGATIVE), true);
+//        assert_eq!(cpu.reg_status.contains(StatusFlags::OVERFLOW), false);
+//    }
+//    #[test]
+//    fn bit_zp() {
+//        let cpu = test_instruction(InstructionType::LOGIC, 0x24, AddressingMode::ZP);
+//        assert_eq!(cpu.reg_status.contains(StatusFlags::ZERO), false);
+//        assert_eq!(cpu.reg_status.contains(StatusFlags::NEGATIVE), true);
+//        assert_eq!(cpu.reg_status.contains(StatusFlags::OVERFLOW), false);
+//    }
+//    #[test]
+//    fn eor_imm() {
+//        let cpu = test_instruction(InstructionType::LOGIC, 0x49, AddressingMode::IMM);
+//        assert_eq!(cpu.reg_a, 0x96);
+//    }
+//    #[test]
+//    fn eor_abs() {
+//        let cpu = test_instruction(InstructionType::LOGIC, 0x4D, AddressingMode::ABS);
+//        assert_eq!(cpu.reg_a, 0x36);
+//    }
+//    #[test]
+//    fn eor_abs_x() {
+//        let cpu = test_instruction(InstructionType::LOGIC, 0x5D, AddressingMode::ABS_X);
+//        assert_eq!(cpu.reg_a, 0x36);
+//    }
+//    #[test]
+//    fn eor_abs_y() {
+//        let cpu = test_instruction(InstructionType::LOGIC, 0x59, AddressingMode::ABS_Y);
+//        assert_eq!(cpu.reg_a, 0x36);
+//    }
+//    #[test]
+//    fn eor_zp() {
+//        let cpu = test_instruction(InstructionType::LOGIC, 0x45, AddressingMode::ZP);
+//        assert_eq!(cpu.reg_a, 0x36);
+//    }
+//    #[test]
+//    fn eor_zp_x() {
+//        let cpu = test_instruction(InstructionType::LOGIC, 0x55, AddressingMode::ZP_X);
+//        assert_eq!(cpu.reg_a, 0x36);
+//    }
+//    #[test]
+//    fn eor_ind_x() {
+//        let cpu = test_instruction(InstructionType::LOGIC, 0x41, AddressingMode::IND_X);
+//        assert_eq!(cpu.reg_a, 0x36);
+//    }
+//    #[test]
+//    fn eor_ind_y() {
+//        let cpu = test_instruction(InstructionType::LOGIC, 0x51, AddressingMode::IND_Y);
+//        assert_eq!(cpu.reg_a, 0x36);
+//    }
+//    #[test]
+//    fn ora_imm() {
+//        let cpu = test_instruction(InstructionType::LOGIC, 0x09, AddressingMode::IMM);
+//        assert_eq!(cpu.reg_a, 0xB6);
+//    }
+//    #[test]
+//    fn ora_abs() {
+//        let cpu = test_instruction(InstructionType::LOGIC, 0x0D, AddressingMode::ABS);
+//        assert_eq!(cpu.reg_a, 0xB6);
+//    }
+//    #[test]
+//    fn ora_abs_x() {
+//        let cpu = test_instruction(InstructionType::LOGIC, 0x1D, AddressingMode::ABS_X);
+//        assert_eq!(cpu.reg_a, 0xB6);
+//    }
+//    #[test]
+//    fn ora_abs_y() {
+//        let cpu = test_instruction(InstructionType::LOGIC, 0x19, AddressingMode::ABS_Y);
+//        assert_eq!(cpu.reg_a, 0xB6);
+//    }
+//    #[test]
+//    fn ora_zp() {
+//        let cpu = test_instruction(InstructionType::LOGIC, 0x05, AddressingMode::ZP);
+//        assert_eq!(cpu.reg_a, 0xB6);
+//    }
+//    #[test]
+//    fn ora_zp_x() {
+//        let cpu = test_instruction(InstructionType::LOGIC, 0x15, AddressingMode::ZP_X);
+//        assert_eq!(cpu.reg_a, 0xB6);
+//    }
+//    #[test]
+//    fn ora_ind_x() {
+//        let cpu = test_instruction(InstructionType::LOGIC, 0x01, AddressingMode::IND_X);
+//        assert_eq!(cpu.reg_a, 0xB6);
+//    }
+//    #[test]
+//    fn ora_ind_y() {
+//        let cpu = test_instruction(InstructionType::LOGIC, 0x11, AddressingMode::IND_Y);
+//        assert_eq!(cpu.reg_a, 0xB6);
+//    }
+//}
