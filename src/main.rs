@@ -1,7 +1,9 @@
+#![allow(warnings)]
 mod bus;
+mod cartridge;
 mod cpu;
 mod opcodes;
-mod cartridge;
+mod trace;
 
 use bus::Bus;
 use cartridge::ROM;
@@ -13,6 +15,7 @@ use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
 use sdl2::pixels::PixelFormatEnum;
 use sdl2::EventPump;
+use trace::trace;
 
 #[macro_use]
 extern crate lazy_static;
@@ -89,38 +92,41 @@ fn handle_user_input(cpu: &mut CPU, event_pump: &mut EventPump) {
 }
 
 fn main() {
-    let sdl_context = sdl2::init().unwrap();
-    let video_subsystem = sdl_context.video().unwrap();
-    let window = video_subsystem
-        .window("Snake game", (32.0 * 10.0) as u32, (32.0 * 10.0) as u32)
-        .position_centered()
-        .build()
-        .unwrap();
+    // let sdl_context = sdl2::init().unwrap();
+    // let video_subsystem = sdl_context.video().unwrap();
+    // let window = video_subsystem
+    //     .window("NES Emulator", (32.0 * 10.0) as u32, (32.0 * 10.0) as u32)
+    //     .position_centered()
+    //     .build()
+    //     .unwrap();
 
-    let mut canvas = window.into_canvas().present_vsync().build().unwrap();
-    let mut event_pump = sdl_context.event_pump().unwrap();
-    canvas.set_scale(10.0, 10.0).unwrap();
+    // let mut canvas = window.into_canvas().present_vsync().build().unwrap();
+    // let mut event_pump = sdl_context.event_pump().unwrap();
+    // canvas.set_scale(10.0, 10.0).unwrap();
 
-    let creator = canvas.texture_creator();
-    let mut texture = creator
-        .create_texture_target(PixelFormatEnum::RGB24, 32, 32)
-        .unwrap();
+    // let creator = canvas.texture_creator();
+    // let mut texture = creator
+    //     .create_texture_target(PixelFormatEnum::RGB24, 32, 32)
+    //     .unwrap();
 
-    let snake: Vec<u8> = std::fs::read("roms/snake.nes").unwrap();
-    let rom = ROM::new(&snake).unwrap();
+    let cartridge: Vec<u8> = std::fs::read("roms/nestest.nes").unwrap();
+    let rom = ROM::new(&cartridge).unwrap();
     let bus = Bus::new(rom);
     let mut cpu = CPU::new(bus);
     cpu.reset();
-    let mut screen_state = [0_u8; 32 * 3 * 32];
-    let mut rng = rand::thread_rng();
+    cpu.reg_pc = 0xC000;
+
+    // let mut screen_state = [0_u8; 32 * 3 * 32];
+    // let mut rng = rand::thread_rng();
     cpu.execute_with_callback(move |cpu| {
-        handle_user_input(cpu, &mut event_pump);
-        cpu.mem_write(0xfe, rng.gen_range(1..16));
-        if read_screen_state(cpu, &mut screen_state) {
-            texture.update(None, &screen_state, 32 * 3).unwrap();
-            canvas.copy(&texture, None, None).unwrap();
-            canvas.present();
-        }
-        std::thread::sleep(std::time::Duration::new(0, 5000));
+        println!("{}", trace(cpu));
+        //     handle_user_input(cpu, &mut event_pump);
+        //     cpu.mem_write(0xfe, rng.gen_range(1..16));
+        //     if read_screen_state(cpu, &mut screen_state) {
+        //         texture.update(None, &screen_state, 32 * 3).unwrap();
+        //         canvas.copy(&texture, None, None).unwrap();
+        //         canvas.present();
+        //     }
+        //     std::thread::sleep(std::time::Duration::new(0, 10000));
     });
 }

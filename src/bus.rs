@@ -26,7 +26,8 @@ impl Memory for Bus {
                 self.vram[(addr & mask) as usize]
             }
             PPU_ADDRESS_SPACE_START..=PPU_ADDRESS_SPACE_END => {
-                todo!("Implement ppu!");
+                // todo!("Implement ppu!");
+                0
             }
             PRG_ADDRESS_SPACE_START..=PRG_ADDRESS_SPACE_END => self.read_prg_rom(addr),
             _ => {

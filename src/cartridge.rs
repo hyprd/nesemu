@@ -1,3 +1,4 @@
+#![allow(warnings)]
 const NES_IDENTIFIER_TAG: [u8; 4] = [0x4E, 0x45, 0x53, 0x1A];
 const ROM_BANK_SIZE: usize = 16384;
 const VROM_BANK_SIZE: usize = 8192;

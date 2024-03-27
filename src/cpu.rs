@@ -97,7 +97,7 @@ impl CPU {
             bus,
         }
     }
-    fn resolve_addressing_mode(&mut self, mode: &AddressingMode) -> u16 {
+    pub fn resolve_addressing_mode(&mut self, mode: &AddressingMode) -> u16 {
         match mode {
             AddressingMode::IMM => self.reg_pc,
             AddressingMode::ZP => self.mem_read(self.reg_pc) as u16,
@@ -137,7 +137,7 @@ impl CPU {
             }
             AddressingMode::ACC => self.reg_a as u16,
             AddressingMode::IMP => {
-                panic!("Implement implied addressing");
+                0 
             }
             AddressingMode::REL => {
                 panic!("Implement relative addressing");

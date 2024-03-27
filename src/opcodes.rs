@@ -150,7 +150,7 @@ lazy_static! {
              Opcode::new(0x6E, "ROR", 3, 6, AddressingMode::ABS),
              Opcode::new(0x7E, "ROR", 3, 7, AddressingMode::ABS_X),
              Opcode::new(0x66, "ROR", 2, 5, AddressingMode::ZP),
-             Opcode::new(0x66, "ROR", 2, 6, AddressingMode::ZP_X),
+             Opcode::new(0x76, "ROR", 2, 6, AddressingMode::ZP_X),
              Opcode::new(0x40, "RTI", 1, 6, AddressingMode::IMP),
              Opcode::new(0x60, "RTS", 1, 6, AddressingMode::IMP),
              Opcode::new(0xE9, "SBC", 2, 2, AddressingMode::IMM),
