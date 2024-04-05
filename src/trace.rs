@@ -82,7 +82,7 @@ pub fn trace(cpu: &mut CPU) -> String {
                         format!("${:04x}", addr)
                     }
                 }
-                AddressingMode::ABS => format!("${:04x} = {:02x}", address, address_value),
+                AddressingMode::ABS => format!("${:04x}", address),
                 AddressingMode::ABS_X => {
                     format!("${:04x},X @ {:04x} = {:02x}", addr, address, address_value)
                 }
