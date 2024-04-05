@@ -354,10 +354,6 @@ impl CPU {
     }
     fn stx(&mut self, mode: &AddressingMode) {
         let address = self.resolve_addressing_mode(mode);
-        // println!("{:#02x?}", address);
-        // print_hex(self.mem_read(address));
-        // println!("{:#02x?}", address);
-        // print_hex(self.mem_read(address  + 1));
         self.mem_write(address, self.reg_x);
     }
     fn sty(&mut self, mode: &AddressingMode) {
@@ -398,6 +394,7 @@ impl CPU {
     fn pla(&mut self) {
         let accumulator_value = self.stack_pop();
         self.reg_a = accumulator_value;
+        self.handle_flags_z_n(self.reg_a);
     }
     fn plp(&mut self) {
         let status_value = self.stack_pop();
@@ -508,6 +505,7 @@ impl CPU {
         let address = self.resolve_addressing_mode(mode);
         let value = self.mem_read(address);
         self.reg_a &= value;
+        self.handle_flags_z_n(self.reg_a);
     }
     fn bit(&mut self, mode: &AddressingMode) {
         let address = self.resolve_addressing_mode(mode);
