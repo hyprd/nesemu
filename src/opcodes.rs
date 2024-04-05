@@ -119,7 +119,6 @@ lazy_static! {
         Opcode::new(0xF7, "ISC", 2, 6, AddressingMode::ZP_X),
         Opcode::new(0xE3, "ISC", 2, 8, AddressingMode::IND_X),
         Opcode::new(0xF3, "ISC", 2, 8, AddressingMode::IND_Y),
-        
         Opcode::new(0x02, "JAM", 1, 0, AddressingMode::IMP),
         Opcode::new(0x12, "JAM", 1, 0, AddressingMode::IMP),
         Opcode::new(0x22, "JAM", 1, 0, AddressingMode::IMP),
@@ -132,7 +131,6 @@ lazy_static! {
         Opcode::new(0xB2, "JAM", 1, 0, AddressingMode::IMP),
         Opcode::new(0xD2, "JAM", 1, 0, AddressingMode::IMP),
         Opcode::new(0xF2, "JAM", 1, 0, AddressingMode::IMP),
-
         Opcode::new(0x4C, "JMP", 3, 3, AddressingMode::ABS),
         Opcode::new(0x6C, "JMP", 3, 5, AddressingMode::ABS),
         Opcode::new(0x20, "JSR", 3, 6, AddressingMode::ABS),

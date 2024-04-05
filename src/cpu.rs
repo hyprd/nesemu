@@ -285,6 +285,9 @@ impl CPU {
                 0x1A | 0x3A | 0x5A | 0x7A | 0xDA | 0xEA | 0xFA | 0x80 | 0x82 | 0x89 | 0xC2
                 | 0xE2 | 0x0C | 0x1C | 0x3C | 0x5C | 0x7C | 0xDC | 0xFC | 0x04 | 0x44 | 0x64
                 | 0x14 | 0x34 | 0x54 | 0x74 | 0xD4 | 0xF4 => self.nop(),
+                0xAB | 0xAF | 0xBF | 0xA7 | 0xB7 | 0xA3 | 0xB3 => {
+                    self.lax(&instruction.addressing_mode)
+                }
                 _ => {
                     return;
                 }
@@ -320,6 +323,13 @@ impl CPU {
         }
     }
 
+    fn lax(&mut self, mode: &AddressingMode) {
+        let address = self.resolve_addressing_mode(mode);
+        let value = self.mem_read(address);
+        self.reg_a = value;
+        self.reg_x = value;
+        self.handle_flags_z_n(value);
+    }
     fn lda(&mut self, mode: &AddressingMode) {
         let address = self.resolve_addressing_mode(mode);
         let value = self.mem_read(address);
@@ -344,6 +354,10 @@ impl CPU {
     }
     fn stx(&mut self, mode: &AddressingMode) {
         let address = self.resolve_addressing_mode(mode);
+        // println!("{:#02x?}", address);
+        // print_hex(self.mem_read(address));
+        // println!("{:#02x?}", address);
+        // print_hex(self.mem_read(address  + 1));
         self.mem_write(address, self.reg_x);
     }
     fn sty(&mut self, mode: &AddressingMode) {
