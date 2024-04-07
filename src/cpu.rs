@@ -431,6 +431,12 @@ impl CPU {
             self.reg_status.remove(StatusFlags::CARRY);
         }
         self.reg_a >>= 1;
+        self.reg_status.remove(StatusFlags::NEGATIVE);
+        if self.reg_a == 0 {
+            self.reg_status.insert(StatusFlags::ZERO);
+        } else {
+            self.reg_status.remove(StatusFlags::ZERO);
+        }
     }
     fn lsr(&mut self, mode: &AddressingMode) {
         let address = self.resolve_addressing_mode(mode);
@@ -442,7 +448,12 @@ impl CPU {
         }
         value >>= 1;
         self.mem_write(address, value);
-        self.handle_flags_z_n(value);
+        self.reg_status.remove(StatusFlags::NEGATIVE);
+        if value == 0 {
+            self.reg_status.insert(StatusFlags::ZERO);
+        } else {
+            self.reg_status.remove(StatusFlags::ZERO);
+        }
     }
     fn rol_a(&mut self) {
         let mut value = self.reg_a;
@@ -528,11 +539,13 @@ impl CPU {
         let address = self.resolve_addressing_mode(mode);
         let value = self.mem_read(address);
         self.reg_a ^= value;
+        self.handle_flags_z_n(self.reg_a);
     }
     fn ora(&mut self, mode: &AddressingMode) {
         let address = self.resolve_addressing_mode(mode);
         let value = self.mem_read(address);
         self.reg_a |= value;
+        self.handle_flags_z_n(self.reg_a);
     }
     fn cmp(&mut self, mode: &AddressingMode, compare: u8) {
         let address = self.resolve_addressing_mode(mode);
