@@ -48,10 +48,6 @@ bitflags! {
     }
 }
 
-fn print_hex(dec: u8) {
-    println!("{:02X?}", dec);
-}
-
 pub trait Memory {
     fn mem_read(&self, addr: u16) -> u8;
     fn mem_write(&mut self, addr: u16, value: u8);
