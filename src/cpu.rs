@@ -291,6 +291,9 @@ impl CPU {
                 0xCF | 0xDF | 0xDB | 0xC7 | 0xD7 | 0xC3 | 0xD3 => {
                     self.dcp(&instruction.addressing_mode)
                 }
+                0xEF | 0xFF | 0xFB | 0xE7 | 0xF7 | 0xE3 | 0xF3 => {
+                    self.isc(&instruction.addressing_mode)
+                }
                 _ => {
                     return;
                 }
@@ -324,6 +327,14 @@ impl CPU {
             let address = self.reg_pc.wrapping_add(1).wrapping_add(jump_offset as u16);
             self.reg_pc = address;
         }
+    }
+    fn isc(&mut self, mode: &AddressingMode) {
+        let address = self.resolve_addressing_mode(mode);
+        let mut value = self.mem_read(address);
+        value = value.wrapping_add(1);
+        self.mem_write(address, value);
+        self.handle_flags_z_n(value);
+        self.add_to_a(!value);
     }
     fn dcp(&mut self, mode: &AddressingMode) {
         // This instruction does not affect internal registers, so don't write
