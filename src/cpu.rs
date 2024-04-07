@@ -399,6 +399,8 @@ impl CPU {
     fn plp(&mut self) {
         let status_value = self.stack_pop();
         self.reg_status = CPU::dec_to_flags(status_value);
+        self.reg_status.remove(StatusFlags::BREAK);
+        self.reg_status.insert(StatusFlags::BREAK_2);
     }
     fn asl_a(&mut self) {
         let mut value = self.reg_a;
