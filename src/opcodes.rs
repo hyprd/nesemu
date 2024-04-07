@@ -157,7 +157,7 @@ lazy_static! {
         Opcode::new(0xB6, "LDX", 2, 4, AddressingMode::ZP_Y),
         Opcode::new(0xA0, "LDY", 2, 2, AddressingMode::IMM),
         Opcode::new(0xAC, "LDY", 3, 4, AddressingMode::ABS),
-        Opcode::new(0xBC, "LDY", 3, 5, AddressingMode::ABS_Y),
+        Opcode::new(0xBC, "LDY", 3, 5, AddressingMode::ABS_X),
         Opcode::new(0xA4, "LDY", 2, 3, AddressingMode::ZP),
         Opcode::new(0xB4, "LDY", 2, 4, AddressingMode::ZP_X),
         Opcode::new(0x4A, "LSR", 1, 2, AddressingMode::ACC),
