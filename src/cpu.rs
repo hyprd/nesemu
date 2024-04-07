@@ -1,5 +1,7 @@
 #![allow(warnings)]
 
+use bitflags::Flags;
+
 use crate::bus::Bus;
 use crate::opcodes;
 use std::collections::HashMap;
@@ -281,9 +283,14 @@ impl CPU {
                 0x1A | 0x3A | 0x5A | 0x7A | 0xDA | 0xEA | 0xFA | 0x80 | 0x82 | 0x89 | 0xC2
                 | 0xE2 | 0x0C | 0x1C | 0x3C | 0x5C | 0x7C | 0xDC | 0xFC | 0x04 | 0x44 | 0x64
                 | 0x14 | 0x34 | 0x54 | 0x74 | 0xD4 | 0xF4 => self.nop(),
-                0xAB | 0xAF | 0xBF | 0xA7 | 0xB7 | 0xA3 | 0xB3 => self.lax(&instruction.addressing_mode),
+                0xAB | 0xAF | 0xBF | 0xA7 | 0xB7 | 0xA3 | 0xB3 => {
+                    self.lax(&instruction.addressing_mode)
+                }
 
                 0x8F | 0x87 | 0x97 | 0x83 => self.sax(&instruction.addressing_mode),
+                0xCF | 0xDF | 0xDB | 0xC7 | 0xD7 | 0xC3 | 0xD3 => {
+                    self.dcp(&instruction.addressing_mode)
+                }
                 _ => {
                     return;
                 }
@@ -318,7 +325,19 @@ impl CPU {
             self.reg_pc = address;
         }
     }
-
+    fn dcp(&mut self, mode: &AddressingMode) {
+        // This instruction does not affect internal registers, so don't write
+        // result to reg_a!
+        let address = self.resolve_addressing_mode(mode);
+        let mut value = self.mem_read(address).wrapping_sub(1);
+        self.mem_write(address, value);
+        if value <= self.reg_a {
+            self.reg_status.insert(StatusFlags::CARRY);
+        } else {
+            self.reg_status.remove(StatusFlags::CARRY);
+        }
+        self.handle_flags_z_n(self.reg_a.wrapping_sub(value));
+    }
     fn lax(&mut self, mode: &AddressingMode) {
         let address = self.resolve_addressing_mode(mode);
         let value = self.mem_read(address);
@@ -332,7 +351,6 @@ impl CPU {
         let value_x = self.reg_x;
         self.mem_write(address, value_a & value_x);
     }
-
     fn lda(&mut self, mode: &AddressingMode) {
         let address = self.resolve_addressing_mode(mode);
         let value = self.mem_read(address);
