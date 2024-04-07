@@ -406,6 +406,7 @@ impl CPU {
             self.reg_status.remove(StatusFlags::CARRY);
         }
         self.reg_a <<= 1;
+        self.handle_flags_z_n(self.reg_a);
     }
     fn asl(&mut self, mode: &AddressingMode) {
         let address = self.resolve_addressing_mode(mode);
@@ -459,10 +460,12 @@ impl CPU {
         } else {
             self.reg_status.remove(StatusFlags::CARRY);
         }
+        value <<= 1;
         if carry_flag {
             value |= 0x01;
         }
         self.reg_a = value;
+        self.handle_flags_z_n(self.reg_a);
     }
     fn rol(&mut self, mode: &AddressingMode) {
         let address = self.resolve_addressing_mode(mode);
@@ -475,7 +478,7 @@ impl CPU {
         }
         value <<= 1;
         if carry_flag {
-            value |= 1;
+            value |= 0x01;
         }
         self.mem_write(address, value);
         self.handle_flags_z_n(value);
@@ -493,6 +496,7 @@ impl CPU {
             value |= 0b10000000;
         }
         self.reg_a = value;
+        self.handle_flags_z_n(self.reg_a);
     }
     fn ror(&mut self, mode: &AddressingMode) {
         let address = self.resolve_addressing_mode(mode);
