@@ -291,9 +291,15 @@ impl CPU {
                 0xCF | 0xDF | 0xDB | 0xC7 | 0xD7 | 0xC3 | 0xD3 => {
                     self.dcp(&instruction.addressing_mode)
                 }
+
                 0xEF | 0xFF | 0xFB | 0xE7 | 0xF7 | 0xE3 | 0xF3 => {
                     self.isc(&instruction.addressing_mode)
                 }
+
+                0x0F | 0x1F | 0x1B | 0x07 | 0x17 | 0x03 | 0x13 => {
+                    self.slo(&instruction.addressing_mode)
+                }
+
                 _ => {
                     return;
                 }
@@ -327,6 +333,19 @@ impl CPU {
             let address = self.reg_pc.wrapping_add(1).wrapping_add(jump_offset as u16);
             self.reg_pc = address;
         }
+    }
+    fn slo(&mut self, mode: &AddressingMode) {
+        let address = self.resolve_addressing_mode(mode);
+        let mut value = self.mem_read(address);
+        if value >> 7 == 1 {
+            self.reg_status.insert(StatusFlags::CARRY);
+        } else {
+            self.reg_status.remove(StatusFlags::CARRY);
+        }
+        value <<= 1;
+        self.mem_write(address, value);
+        self.reg_a |= value;
+        self.handle_flags_z_n(self.reg_a);
     }
     fn isc(&mut self, mode: &AddressingMode) {
         let address = self.resolve_addressing_mode(mode);
