@@ -300,6 +300,10 @@ impl CPU {
                     self.slo(&instruction.addressing_mode)
                 }
 
+                0x2F | 0x3F | 0x3B | 0x27 | 0x37 | 0x23 | 0x33 => {
+                    self.rla(&instruction.addressing_mode)
+                }
+                
                 _ => {
                     return;
                 }
@@ -333,6 +337,28 @@ impl CPU {
             let address = self.reg_pc.wrapping_add(1).wrapping_add(jump_offset as u16);
             self.reg_pc = address;
         }
+    }
+    fn rla(&mut self, mode: &AddressingMode) {
+        let address = self.resolve_addressing_mode(mode);
+        let mut value = self.mem_read(address);
+        let carry = self.reg_status.contains(StatusFlags::CARRY);
+        if value >> 7 == 1 { 
+            self.reg_status.insert(StatusFlags::CARRY);
+        } else {
+            self.reg_status.remove(StatusFlags::CARRY);
+        }
+        value <<= 1;
+        if carry {
+            value |= 1;
+        }
+        self.mem_write(address, value);
+        if value >> 7 == 1 {
+            self.reg_status.insert(StatusFlags::NEGATIVE);
+        } else {
+            self.reg_status.remove(StatusFlags::NEGATIVE);
+        }
+        self.reg_a &= value;
+        self.handle_flags_z_n(self.reg_a);
     }
     fn slo(&mut self, mode: &AddressingMode) {
         let address = self.resolve_addressing_mode(mode);
