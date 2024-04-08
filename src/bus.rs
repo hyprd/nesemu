@@ -46,9 +46,7 @@ impl Memory for Bus {
                 todo!("Implement ppu!");
             }
             PRG_ADDRESS_SPACE_START..=PRG_ADDRESS_SPACE_END => {
-                // panic!("Illegal write to cartridge ROM");
-                let mask = 0b11111111111;
-                self.vram[(addr & mask) as usize] = value;
+                panic!("Illegal write to cartridge ROM");
             }
             _ => {
                 println!("Memory write at {:#04X?} ignored", addr);
