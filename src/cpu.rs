@@ -303,6 +303,10 @@ impl CPU {
                 0x2F | 0x3F | 0x3B | 0x27 | 0x37 | 0x23 | 0x33 => {
                     self.rla(&instruction.addressing_mode)
                 }
+
+                0x4F | 0x5F | 0x5B | 0x47 | 0x57 | 0x43 | 0x53 => {
+                    self.sre(&instruction.addressing_mode)
+                }
                 
                 _ => {
                     return;
@@ -338,6 +342,20 @@ impl CPU {
             self.reg_pc = address;
         }
     }
+    fn sre(&mut self, mode: &AddressingMode) {
+        let address = self.resolve_addressing_mode(mode);
+        let mut value = self.mem_read(address);
+        if value & 0x01 == 1 { 
+            self.reg_status.insert(StatusFlags::CARRY);
+        } else {
+            self.reg_status.remove(StatusFlags::CARRY);
+        }
+        value >>= 1;
+        self.mem_write(address, value);
+        self.reg_a ^= value;
+        self.handle_flags_z_n(self.reg_a);
+    }
+
     fn rla(&mut self, mode: &AddressingMode) {
         let address = self.resolve_addressing_mode(mode);
         let mut value = self.mem_read(address);
