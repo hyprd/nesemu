@@ -344,6 +344,25 @@ impl CPU {
             self.reg_pc = address;
         }
     }
+    fn las(&mut self, mode: &AddressingMode) {
+        let address = self.resolve_addressing_mode(mode);
+        let value = self.mem_read(address);
+        let evaluation = value & self.reg_sp;
+        self.reg_a = evaluation;
+        self.reg_x = evaluation;
+        self.reg_sp = evaluation;
+        self.handle_flags_z_n(evaluation);
+    }
+    fn sha(&mut self, mode: &AddressingMode) {}
+    fn shx(&mut self, mode: &AddressingMode) {}
+    fn shy(&mut self, mode: &AddressingMode) {}
+    fn shs(&mut self, mode: &AddressingMode) {}
+    fn anc(&mut self, mode: &AddressingMode) {}
+    fn arr(&mut self, mode: &AddressingMode) {}
+    fn asr(&mut self, mode: &AddressingMode) {}
+    fn sbx(&mut self, mode: &AddressingMode) {}
+    fn xaa(&mut self, mode: &AddressingMode) {}
+
     fn rra(&mut self, mode: &AddressingMode) {
         let address = self.resolve_addressing_mode(mode);
         let mut value = self.mem_read(address);
