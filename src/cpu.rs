@@ -307,7 +307,9 @@ impl CPU {
                 0x4F | 0x5F | 0x5B | 0x47 | 0x57 | 0x43 | 0x53 => {
                     self.sre(&instruction.addressing_mode)
                 }
-                
+                0x6F | 0x7F | 0x7B | 0x67 | 0x77 | 0x63 | 0x73 => {
+                    self.rra(&instruction.addressing_mode)
+                }
                 _ => {
                     return;
                 }
@@ -342,10 +344,28 @@ impl CPU {
             self.reg_pc = address;
         }
     }
+    fn rra(&mut self, mode: &AddressingMode) {
+        let address = self.resolve_addressing_mode(mode);
+        let mut value = self.mem_read(address);
+        let carry_flag = self.reg_status.contains(StatusFlags::CARRY);
+        if value & 0x01 == 1 {
+            self.reg_status.insert(StatusFlags::CARRY);
+        } else {
+            self.reg_status.remove(StatusFlags::CARRY);
+        }
+        value >>= 1;
+        if carry_flag {
+            value |= 0b10000000;
+        }
+        self.mem_write(address, value);
+        self.handle_flags_z_n(value);
+        self.add_to_a(value);
+    }
+
     fn sre(&mut self, mode: &AddressingMode) {
         let address = self.resolve_addressing_mode(mode);
         let mut value = self.mem_read(address);
-        if value & 0x01 == 1 { 
+        if value & 0x01 == 1 {
             self.reg_status.insert(StatusFlags::CARRY);
         } else {
             self.reg_status.remove(StatusFlags::CARRY);
@@ -360,7 +380,7 @@ impl CPU {
         let address = self.resolve_addressing_mode(mode);
         let mut value = self.mem_read(address);
         let carry = self.reg_status.contains(StatusFlags::CARRY);
-        if value >> 7 == 1 { 
+        if value >> 7 == 1 {
             self.reg_status.insert(StatusFlags::CARRY);
         } else {
             self.reg_status.remove(StatusFlags::CARRY);
