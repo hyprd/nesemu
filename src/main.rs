@@ -4,6 +4,7 @@ mod cartridge;
 mod cpu;
 mod opcodes;
 mod trace;
+mod ppu;
 
 use bus::Bus;
 use cartridge::ROM;

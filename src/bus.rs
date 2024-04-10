@@ -2,6 +2,7 @@
 
 use crate::cartridge::ROM;
 use crate::cpu::Memory;
+use crate::ppu::PPU;
 
 const RAM_ADDRESS_SPACE_START: u16 = 0x0000;
 const RAM_ADDRESS_SPACE_END: u16 = 0x1FFF;
