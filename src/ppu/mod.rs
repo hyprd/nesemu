@@ -1,7 +1,9 @@
 use crate::cartridge::MirroringType;
 use reg_addr::PPUADDR;
+use reg_controller::PPUCTRL;
 
 pub mod reg_addr;
+pub mod reg_controller;
 
 pub struct PPU {
     pub chr_rom: Vec<u8>,
@@ -13,7 +15,8 @@ pub struct PPU {
     pub reg_t: u16,
     pub reg_x: u8,
     pub reg_w: bool,
-    reg_address: PPUADDR,
+    pub reg_address: PPUADDR,
+    pub reg_controller: PPUCTRL,
 }
 
 impl PPU {
@@ -37,10 +40,15 @@ impl PPU {
             reg_x: 0,
             reg_w: true,
             reg_address: PPUADDR::new(),
+            reg_controller: PPUCTRL::from_bits_truncate(0b00000000),
         }
     }
 
-    fn write_to_reg_addr(&mut self, value: u8) {
+    pub fn write_to_reg_addr(&mut self, value: u8) {
         self.reg_address.update(value);
+    }
+
+    pub fn write_to_reg_ctrl(&mut self, value: u8) {
+        self.reg_controller = PPUCTRL::from_bits_truncate(value);
     }
 }

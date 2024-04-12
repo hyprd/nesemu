@@ -7,9 +7,11 @@ mod trace;
 mod ppu;
 
 use bus::Bus;
+use cartridge::MirroringType;
 use cartridge::ROM;
 use cpu::Memory;
 use cpu::CPU;
+use ppu::PPU;
 use rand::Rng;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
@@ -117,10 +119,14 @@ fn main() {
     cpu.reset();
     cpu.reg_pc = 0xC000;
 
+    let chr = vec!(1,2,3);
+    let mut ppu = PPU::new(chr, MirroringType::Vertical);
+    ppu.write_to_reg_ctrl(0b100000);
+
     // let mut screen_state = [0_u8; 32 * 3 * 32];
     // let mut rng = rand::thread_rng();
     cpu.execute_with_callback(move |cpu| {
-        println!("{}", trace(cpu));
+        // println!("{}", trace(cpu));
         //     handle_user_input(cpu, &mut event_pump);
         //     cpu.mem_write(0xfe, rng.gen_range(1..16));
         //     if read_screen_state(cpu, &mut screen_state) {
