@@ -17,6 +17,7 @@ pub struct PPU {
     pub reg_w: bool,
     pub reg_address: PPUADDR,
     pub reg_controller: PPUCTRL,
+    internal_data_buffer: u8,
 }
 
 impl PPU {
@@ -41,6 +42,7 @@ impl PPU {
             reg_w: true,
             reg_address: PPUADDR::new(),
             reg_controller: PPUCTRL::from_bits_truncate(0b00000000),
+            internal_data_buffer: 0,
         }
     }
 
@@ -50,5 +52,31 @@ impl PPU {
 
     pub fn write_to_reg_ctrl(&mut self, value: u8) {
         self.reg_controller = PPUCTRL::from_bits_truncate(value);
+    }
+
+    pub fn increment_vram_address(&mut self) {
+        if self.reg_controller.contains(PPUCTRL::VRAM_ADDR_INCREMENT) {
+            self.reg_address.increment(1);
+        } else {
+            self.reg_address.increment(32);
+        }
+    }
+
+    pub fn read_data(&mut self) -> u8 {
+        let address = self.reg_address.get();
+        self.increment_vram_address();
+        match address {
+            0..=0x1FFF => {
+                let buffer_data = self.internal_data_buffer;
+                self.internal_data_buffer = self.chr_rom[address as usize];
+                buffer_data
+            }
+            0x2000..=0x2FFF => {
+               todo!("Mirror VRAM function needs to be done"); 
+            }
+            0x3000..=0x3EFF => panic!("Illegal memory space access at {}", address),
+            0x3F00..=0x3FFF => todo!("Palette table"),
+            _ => panic!("Illegal access of mirrored space = {}", address),
+        }
     }
 }

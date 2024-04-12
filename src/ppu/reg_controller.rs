@@ -31,4 +31,3 @@ bitflags! {
        const GENERATE_NMI = 0b10000000;
     }
 }
-
