@@ -1,4 +1,7 @@
 use crate::cartridge::MirroringType;
+use reg_addr::PPUADDR;
+
+pub mod reg_addr;
 
 pub struct PPU {
     pub chr_rom : Vec<u8>,
@@ -6,6 +9,11 @@ pub struct PPU {
     pub vram: [u8; 2048],
     pub oam: [u8; 256],
     pub mirroring: MirroringType,
+    pub reg_v: u16,
+    pub reg_t: u16,
+    pub reg_x: u8,
+    pub reg_w: bool,
+    reg_address: PPUADDR,
 }
 
 impl PPU {
@@ -23,7 +31,12 @@ impl PPU {
             palette_table: [0; 32],
             vram: [0; 02048],
             oam: [0; 256],
-            mirroring
+            mirroring,
+            reg_v : 0,
+            reg_t : 0,
+            reg_x : 0,
+            reg_w: true,
+            reg_address : PPUADDR::new(),
         }
     }
 }
