@@ -51,9 +51,9 @@ bitflags! {
 }
 
 pub trait Memory {
-    fn mem_read(&self, addr: u16) -> u8;
+    fn mem_read(&mut self, addr: u16) -> u8;
     fn mem_write(&mut self, addr: u16, value: u8);
-    fn mem_read_u16(&self, addr: u16) -> u16 {
+    fn mem_read_u16(&mut self, addr: u16) -> u16 {
         // LL, HH are 6502 mnemonics
         let ll = self.mem_read(addr) as u16;
         let hh = self.mem_read(addr + 1) as u16;
@@ -68,13 +68,13 @@ pub trait Memory {
 }
 
 impl Memory for CPU {
-    fn mem_read(&self, addr: u16) -> u8 {
+    fn mem_read(&mut self, addr: u16) -> u8 {
         self.bus.mem_read(addr)
     }
     fn mem_write(&mut self, addr: u16, value: u8) {
         self.bus.mem_write(addr, value)
     }
-    fn mem_read_u16(&self, addr: u16) -> u16 {
+    fn mem_read_u16(&mut self, addr: u16) -> u16 {
         self.bus.mem_read_u16(addr)
     }
     fn mem_write_u16(&mut self, addr: u16, value: u16) {

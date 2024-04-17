@@ -18,7 +18,7 @@ pub struct Bus {
 }
 
 impl Memory for Bus {
-    fn mem_read(&self, addr: u16) -> u8 {
+    fn mem_read(&mut self, addr: u16) -> u8 {
         match addr {
             RAM_ADDRESS_SPACE_START..=RAM_ADDRESS_SPACE_END => {
                 // CPU has 2KB of RAM which is addressable with 11 bits, but
@@ -27,9 +27,13 @@ impl Memory for Bus {
                 let mask = 0b11111111111;
                 self.vram[(addr & mask) as usize]
             }
-            PPU_ADDRESS_SPACE_START..=PPU_ADDRESS_SPACE_END => {
-                // todo!("Implement ppu!");
-                0
+            0x2000 | 0x2001 | 0x2003 | 0x2005 | 0x2006 | 0x4014 => {
+                panic!("Illegal write to MMIO registers");
+            }
+            0x2007 => self.ppu.read_data(),
+            0x2008..=PPU_ADDRESS_SPACE_END => {
+                let mirror_down = addr & 0x2007;
+                self.mem_read(mirror_down)
             }
             PRG_ADDRESS_SPACE_START..=PRG_ADDRESS_SPACE_END => self.read_prg_rom(addr),
             _ => {
@@ -43,6 +47,12 @@ impl Memory for Bus {
             RAM_ADDRESS_SPACE_START..=RAM_ADDRESS_SPACE_END => {
                 let mask = 0b11111111111;
                 self.vram[(addr & mask) as usize] = value;
+            }
+            0x2000 => {
+                self.ppu.write_to_reg_ctrl(value);
+            }
+            0x2006 => {
+                self.ppu.write_to_reg_addr(value);
             }
             PPU_ADDRESS_SPACE_START..=PPU_ADDRESS_SPACE_END => {
                 todo!("Implement ppu!");
