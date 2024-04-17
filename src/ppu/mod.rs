@@ -79,4 +79,19 @@ impl PPU {
             _ => panic!("Illegal access of mirrored space = {}", address),
         }
     }
+
+    pub fn mirror_vram(&self, address: u16) -> u16 {
+        // Mirror down to addressable VRAM space
+        let mirror_down = address & 0x2FFF;
+        // Get position that address exists within VRAM space
+        let vram_position = mirror_down - 0x2000;
+        // Get corresponding nametable of given address
+        let nametable = vram_position / 0x400;
+
+        match (&self.mirroring, nametable) {
+            (MirroringType::Vertical, 2) | (MirroringType::Vertical, 3) | (MirroringType::Horizontal, 3) => vram_position - 0x800,
+            (MirroringType::Horizontal, 1) | (MirroringType::Horizontal, 2) => vram_position - 0x400,
+            _ => vram_position,
+        }
+    }
 }

@@ -13,7 +13,8 @@ const PRG_ADDRESS_SPACE_END: u16= 0xFFFF;
 
 pub struct Bus {
     vram: [u8; 0x800],
-    rom: ROM,
+    rom: Vec<u8>,
+    ppu: PPU,
 }
 
 impl Memory for Bus {
@@ -58,16 +59,18 @@ impl Memory for Bus {
 
 impl Bus {
     pub fn new(rom: ROM) -> Self {
+        let ppu = PPU::new(rom.rom_chr, rom.mirroring_type);
         Bus {
             vram: [0; 0x800],
-            rom,
+            rom: rom.rom_prg,
+            ppu,
         }
     }
     fn read_prg_rom(&self, mut addr: u16) -> u8 {
         addr -= 0x8000;
-        if self.rom.rom_prg.len() == 0x4000 && addr >= 0x4000 {
+        if self.rom.len() == 0x4000 && addr >= 0x4000 {
             addr = addr % 0x4000;
         }
-        self.rom.rom_prg[addr as usize]
+        self.rom[addr as usize]
     }
 }
