@@ -1,9 +1,11 @@
 use crate::cartridge::MirroringType;
 use reg_addr::PPUADDR;
 use reg_controller::PPUCTRL;
+use reg_mask::PPUMASK;
 
 pub mod reg_addr;
 pub mod reg_controller;
+pub mod reg_mask;
 
 pub struct PPU {
     pub chr_rom: Vec<u8>,
@@ -17,6 +19,7 @@ pub struct PPU {
     pub reg_w: bool,
     pub reg_address: PPUADDR,
     pub reg_controller: PPUCTRL,
+    pub reg_mask: PPUMASK,
     internal_data_buffer: u8,
 }
 
@@ -42,6 +45,7 @@ impl PPU {
             reg_w: true,
             reg_address: PPUADDR::new(),
             reg_controller: PPUCTRL::from_bits_truncate(0b00000000),
+            reg_mask: PPUMASK::new(),
             internal_data_buffer: 0,
         }
     }
@@ -53,6 +57,10 @@ impl PPU {
     pub fn write_to_reg_ctrl(&mut self, value: u8) {
         self.reg_controller = PPUCTRL::from_bits_truncate(value);
     }
+
+    pub fn write_to_reg_mask(&mut self, value: u8) {
+        self.reg_mask.update(value);
+    } 
 
     pub fn increment_vram_address(&mut self) {
         if self.reg_controller.contains(PPUCTRL::VRAM_ADDR_INCREMENT) {

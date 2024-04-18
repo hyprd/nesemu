@@ -122,7 +122,8 @@ fn main() {
     let chr = vec!(1,2,3);
     let mut ppu = PPU::new(chr, MirroringType::Vertical);
     ppu.write_to_reg_ctrl(0b100000);
-
+    ppu.write_to_reg_mask(0b00011110);
+    ppu.write_to_reg_mask(0);
     // let mut screen_state = [0_u8; 32 * 3 * 32];
     // let mut rng = rand::thread_rng();
     cpu.execute_with_callback(move |cpu| {
