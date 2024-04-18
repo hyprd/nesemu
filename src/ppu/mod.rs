@@ -3,9 +3,12 @@ use reg_addr::PPUADDR;
 use reg_controller::PPUCTRL;
 use reg_mask::PPUMASK;
 
+use self::reg_status::PPUSTATUS;
+
 pub mod reg_addr;
 pub mod reg_controller;
 pub mod reg_mask;
+pub mod reg_status;
 
 pub struct PPU {
     pub chr_rom: Vec<u8>,
@@ -20,6 +23,7 @@ pub struct PPU {
     pub reg_address: PPUADDR,
     pub reg_controller: PPUCTRL,
     pub reg_mask: PPUMASK,
+    pub reg_status: PPUSTATUS,
     internal_data_buffer: u8,
 }
 
@@ -45,6 +49,7 @@ impl PPU {
             reg_w: true,
             reg_address: PPUADDR::new(),
             reg_controller: PPUCTRL::new(),
+            reg_status: PPUSTATUS::new(),
             reg_mask: PPUMASK::new(),
             internal_data_buffer: 0,
         }
@@ -60,7 +65,14 @@ impl PPU {
 
     pub fn write_to_reg_mask(&mut self, value: u8) {
         self.reg_mask.update(value);
-    } 
+    }
+
+    pub fn read_status(&mut self, value: u8) -> u8 {
+        let current_status = self.reg_status.bits();
+        // VBLANK is cleared after reading 0x2002
+        self.reg_status.reset_vblank();
+        current_status
+    }
 
     pub fn increment_vram_address(&mut self) {
         if self.reg_controller.contains(PPUCTRL::VRAM_ADDR_INCREMENT) {

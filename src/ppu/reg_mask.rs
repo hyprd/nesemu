@@ -1,5 +1,3 @@
-use std::ops::{BitAnd, BitAndAssign};
-
 use bitflags::Flags;
 // 7  bit  0
 // ---- ----
