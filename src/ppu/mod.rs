@@ -44,7 +44,7 @@ impl PPU {
             reg_x: 0,
             reg_w: true,
             reg_address: PPUADDR::new(),
-            reg_controller: PPUCTRL::from_bits_truncate(0b00000000),
+            reg_controller: PPUCTRL::new(),
             reg_mask: PPUMASK::new(),
             internal_data_buffer: 0,
         }
@@ -55,7 +55,7 @@ impl PPU {
     }
 
     pub fn write_to_reg_ctrl(&mut self, value: u8) {
-        self.reg_controller = PPUCTRL::from_bits_truncate(value);
+        self.reg_controller.update(value);
     }
 
     pub fn write_to_reg_mask(&mut self, value: u8) {
