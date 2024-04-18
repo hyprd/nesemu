@@ -80,7 +80,9 @@ impl PPU {
                 buffer_data
             }
             0x2000..=0x2FFF => {
-               todo!("Mirror VRAM function needs to be done"); 
+                let buffer_data = self.internal_data_buffer;
+                self.internal_data_buffer = self.vram[self.mirror_vram(address) as usize];
+                buffer_data
             }
             0x3000..=0x3EFF => panic!("Illegal memory space access at {}", address),
             0x3F00..=0x3FFF => todo!("Palette table"),
