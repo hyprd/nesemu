@@ -15,7 +15,6 @@ pub struct PPU {
     pub chr_rom: Vec<u8>,
     pub palette_table: [u8; 32],
     pub vram: [u8; 2048],
-    pub oam: [u8; 256],
     pub mirroring: MirroringType,
     pub reg_v: u16,
     pub reg_t: u16,
@@ -27,6 +26,9 @@ pub struct PPU {
     pub reg_status: PPUSTATUS,
     pub reg_scroll: PPUSCROLL,
     internal_data_buffer: u8,
+    
+    pub oam_data: [u8; 256],
+    pub oam_address: u8,
 }
 
 impl PPU {
@@ -42,8 +44,7 @@ impl PPU {
         PPU {
             chr_rom,
             palette_table: [0; 32],
-            vram: [0; 02048],
-            oam: [0; 256],
+            vram: [0; 2048],
             mirroring,
             reg_v: 0,
             reg_t: 0,
@@ -55,7 +56,29 @@ impl PPU {
             reg_mask: PPUMASK::new(),
             reg_scroll: PPUSCROLL::new(),
             internal_data_buffer: 0,
+            oam_data: [0; 256],
+            oam_address: 0,
         }
+    }
+
+    pub fn write_to_oam_address(&mut self, value : u8) {
+        self.oam_address = value;
+    }
+
+    pub fn write_to_oam_data(&mut self, value: u8) {
+        self.oam_data[self.oam_address as usize] = value;
+        self.oam_address = self.oam_address.wrapping_add(1);
+    }
+
+    pub fn write_to_oam_dma(&mut self, data: &[u8; 0xFF]) {
+        for x in data.iter() {
+            self.oam_data[self.oam_address as usize] = *x;
+            self.oam_address = self.oam_address.wrapping_add(1);
+        }
+    }
+
+    pub fn read_oam_data(&self) -> u8 {
+        self.oam_data[self.oam_address as usize]
     }
     
     pub fn write_to_reg_addr(&mut self, value: u8) {
