@@ -2,12 +2,13 @@ use crate::cartridge::MirroringType;
 use reg_addr::PPUADDR;
 use reg_controller::PPUCTRL;
 use reg_mask::PPUMASK;
-
-use self::reg_status::PPUSTATUS;
+use reg_scroll::PPUSCROLL;
+use reg_status::PPUSTATUS;
 
 pub mod reg_addr;
 pub mod reg_controller;
 pub mod reg_mask;
+pub mod reg_scroll;
 pub mod reg_status;
 
 pub struct PPU {
@@ -24,6 +25,7 @@ pub struct PPU {
     pub reg_controller: PPUCTRL,
     pub reg_mask: PPUMASK,
     pub reg_status: PPUSTATUS,
+    pub reg_scroll: PPUSCROLL,
     internal_data_buffer: u8,
 }
 
@@ -51,22 +53,27 @@ impl PPU {
             reg_controller: PPUCTRL::new(),
             reg_status: PPUSTATUS::new(),
             reg_mask: PPUMASK::new(),
+            reg_scroll: PPUSCROLL::new(),
             internal_data_buffer: 0,
         }
     }
-
+    
     pub fn write_to_reg_addr(&mut self, value: u8) {
         self.reg_address.update(value);
     }
-
+    
     pub fn write_to_reg_ctrl(&mut self, value: u8) {
         self.reg_controller.update(value);
     }
-
+    
     pub fn write_to_reg_mask(&mut self, value: u8) {
         self.reg_mask.update(value);
     }
-
+    
+    pub fn write_to_reg_scroll(&mut self, value: u8) {
+        self.reg_scroll.write_scroll(value);
+    }
+    
     pub fn read_status(&mut self, value: u8) -> u8 {
         let current_status = self.reg_status.bits();
         // VBLANK is cleared after reading 0x2002
@@ -111,8 +118,12 @@ impl PPU {
         let nametable = vram_position / 0x400;
 
         match (&self.mirroring, nametable) {
-            (MirroringType::Vertical, 2) | (MirroringType::Vertical, 3) | (MirroringType::Horizontal, 3) => vram_position - 0x800,
-            (MirroringType::Horizontal, 1) | (MirroringType::Horizontal, 2) => vram_position - 0x400,
+            (MirroringType::Vertical, 2)
+            | (MirroringType::Vertical, 3)
+            | (MirroringType::Horizontal, 3) => vram_position - 0x800,
+            (MirroringType::Horizontal, 1) | (MirroringType::Horizontal, 2) => {
+                vram_position - 0x400
+            }
             _ => vram_position,
         }
     }
