@@ -50,6 +50,5 @@ impl PPUSTATUS {
         self.remove(PPUSTATUS::VBLANK_STARTED);
     } 
     pub fn in_vblank(&self) -> bool {
-        self.contains(PPUSTATUS::VBLANK_STARTED)
-    }
+        self.contains(PPUSTATUS::VBLANK_STARTED)}
 }

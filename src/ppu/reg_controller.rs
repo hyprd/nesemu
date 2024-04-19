@@ -39,5 +39,5 @@ impl PPUCTRL {
 
     pub fn update(&mut self, value: u8) {
         *self = PPUCTRL::from_bits_truncate(value);
-    } 
+    }
 }

@@ -29,6 +29,9 @@ pub struct PPU {
     
     pub oam_data: [u8; 256],
     pub oam_address: u8,
+
+    scanline: u16,
+    cycles: usize,
 }
 
 impl PPU {
@@ -58,7 +61,23 @@ impl PPU {
             internal_data_buffer: 0,
             oam_data: [0; 256],
             oam_address: 0,
+            scanline: 0,
+            cycles: 0,
         }
+    }
+
+    pub fn tick(&mut self, cycles: u8) -> bool {
+        // Since the PPU runs three times faster than the CPU,
+        // any CPU cycles are multiplied by three.
+        self.cycles += cycles as usize;     
+        if self.cycles >= 341 {
+            // don't set to zero -> eating cycles!
+            self.cycles = self.cycles - 341;
+            self.scanline += 1;
+            if self.scanline == 241 {
+            }
+        } 
+        false
     }
 
     pub fn write_to_oam_address(&mut self, value : u8) {

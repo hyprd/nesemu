@@ -8,13 +8,14 @@ const RAM_ADDRESS_SPACE_START: u16 = 0x0000;
 const RAM_ADDRESS_SPACE_END: u16 = 0x1FFF;
 const PPU_ADDRESS_SPACE_START: u16 = 0x2000;
 const PPU_ADDRESS_SPACE_END: u16 = 0x3FFF;
-const PRG_ADDRESS_SPACE_START : u16 = 0x8000;
-const PRG_ADDRESS_SPACE_END: u16= 0xFFFF;
+const PRG_ADDRESS_SPACE_START: u16 = 0x8000;
+const PRG_ADDRESS_SPACE_END: u16 = 0xFFFF;
 
 pub struct Bus {
     vram: [u8; 0x800],
     rom: Vec<u8>,
     ppu: PPU,
+    cycles: usize,
 }
 
 impl Memory for Bus {
@@ -95,8 +96,15 @@ impl Bus {
             vram: [0; 0x800],
             rom: rom.rom_prg,
             ppu,
+            cycles: 0,
         }
     }
+
+    pub fn tick(&mut self, cycles: u8) {
+        self.cycles += cycles as usize;
+        self.ppu.tick(cycles * 3);
+    }
+
     fn read_prg_rom(&self, mut addr: u16) -> u8 {
         addr -= 0x8000;
         if self.rom.len() == 0x4000 && addr >= 0x4000 {
