@@ -70,7 +70,7 @@ impl PPU {
         self.oam_address = self.oam_address.wrapping_add(1);
     }
 
-    pub fn write_to_oam_dma(&mut self, data: &[u8; 0xFF]) {
+    pub fn write_to_oam_dma(&mut self, data: &[u8; 0x100]) {
         for x in data.iter() {
             self.oam_data[self.oam_address as usize] = *x;
             self.oam_address = self.oam_address.wrapping_add(1);
@@ -97,19 +97,46 @@ impl PPU {
         self.reg_scroll.write_scroll(value);
     }
     
-    pub fn read_status(&mut self, value: u8) -> u8 {
+    pub fn read_status(&mut self) -> u8 {
         let current_status = self.reg_status.bits();
         // VBLANK is cleared after reading 0x2002
         self.reg_status.reset_vblank();
+        self.reg_address.reset();
+        self.reg_scroll.reset_scroll();
         current_status
     }
 
     pub fn increment_vram_address(&mut self) {
-        if self.reg_controller.contains(PPUCTRL::VRAM_ADDR_INCREMENT) {
+        if !self.reg_controller.contains(PPUCTRL::VRAM_ADDR_INCREMENT) {
             self.reg_address.increment(1);
         } else {
             self.reg_address.increment(32);
         }
+    }
+
+    pub fn write_data(&mut self, value: u8) {
+        let address = self.reg_address.get();
+        match address {
+            0..=0x1FFF => {
+                println!("Illegal attempt to write to CHR ROM address space: {}", address);
+            }
+            0x2000..=0x2FFF => {
+                self.vram[self.mirror_vram(address) as usize] = value;
+            }
+            // Mirror addresses of palette table values 
+            0x3F10 | 0x3F14 | 0x3F18 | 0x3F1C => {
+                let mirror_down = (address - 0x10) - 0x3F00;
+                self.palette_table[mirror_down as usize] = value;
+            }
+            0x3F00..=0x3FFF => {
+                let entry = address - 0x3F00;
+                self.palette_table[entry as usize] = value;
+            }
+            _ => {
+                panic!("Illegal write attempt to mirrored memory space: {}", address);
+            }
+        }
+        self.increment_vram_address();
     }
 
     pub fn read_data(&mut self) -> u8 {
