@@ -76,7 +76,7 @@ impl PPU {
         self.cycles += cycles as usize;     
         if self.cycles >= SCANLINE_PPU_CYCLE_LIMIT {
             // don't set to zero -> eating cycles!
-            self.cycles = self.cycles - 341;
+            self.cycles = self.cycles - SCANLINE_PPU_CYCLE_LIMIT;
             self.scanline += 1;
             if self.scanline == VBLANK_SCANLINE_LIMIT {
                 if self.reg_controller.generate_nmi() {
