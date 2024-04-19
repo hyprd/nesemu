@@ -52,7 +52,4 @@ impl PPUSTATUS {
     pub fn in_vblank(&self) -> bool {
         self.contains(PPUSTATUS::VBLANK_STARTED)
     }
-    pub fn get_bits(&self) -> u8 {
-        self.bits()
-    }
 }
