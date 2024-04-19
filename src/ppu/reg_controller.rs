@@ -51,4 +51,35 @@ impl PPUCTRL {
 
         }
     }
+    pub fn sprite_pattern_table_address(&self) -> u16 {
+        if self.contains(PPUCTRL::SPRITE_PATTERN_TABLE_ADDR) {
+            0x1000
+        } else {
+            0x0000
+        }
+    }
+    pub fn background_pattern_table_address(&self) -> u16 {
+        if self.contains(PPUCTRL::BACKGROUND_PATTERN_TABLE_ADDR) {
+            0x1000
+        } else {
+            0x0000
+        }
+    }
+    pub fn sprite_size(&self) -> u8 {
+        if self.contains(PPUCTRL::SPRITE_SIZE) {
+            16
+        } else {
+            8
+        }
+    }
+    pub fn ppu_master_slave_select(&self) -> u8 {
+        if self.contains(PPUCTRL::PPU_MASTER_SLAVE_SELECT) {
+            1
+        } else {
+            0
+        }
+    }
+    pub fn generate_nmi(&self) -> bool {
+        self.contains(PPUCTRL::GENERATE_NMI)
+    } 
 }
