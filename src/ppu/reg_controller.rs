@@ -40,4 +40,15 @@ impl PPUCTRL {
     pub fn update(&mut self, value: u8) {
         *self = PPUCTRL::from_bits_truncate(value);
     }
+
+    pub fn nametable_address(&self) -> u16 {
+        match self.bits() & 0b11 {
+            0 => 0x2000,
+            1 => 0x2400,
+            2 => 0x2800,
+            3 => 0x2C00,
+            _ => panic!("Unable to generate nametable address [PPUCTRL]"),
+
+        }
+    }
 }
