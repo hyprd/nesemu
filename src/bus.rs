@@ -28,8 +28,10 @@ impl Memory for Bus {
                 self.vram[(addr & mask) as usize]
             }
             0x2000 | 0x2001 | 0x2003 | 0x2005 | 0x2006 | 0x4014 => {
-                panic!("Illegal write to MMIO registers");
+                panic!("Illegal read to write-only MMIO registers");
             }
+            0x2002 => self.ppu.read_status(),
+            0x2004 => self.ppu.read_oam_data(),
             0x2007 => self.ppu.read_data(),
             0x2008..=PPU_ADDRESS_SPACE_END => {
                 let mirror_down = addr & 0x2007;
@@ -51,14 +53,33 @@ impl Memory for Bus {
             0x2000 => {
                 self.ppu.write_to_reg_ctrl(value);
             }
+            0x2001 => {
+                self.ppu.write_to_reg_mask(value);
+            }
+            0x2002 => {
+                panic!("Illegl write to PPU status register: {:02x}", addr);
+            }
+            0x2003 => {
+                self.ppu.write_to_oam_address(value);
+            }
+            0x2004 => {
+                self.ppu.write_to_oam_data(value);
+            }
+            0x2005 => {
+                self.ppu.write_to_reg_scroll(value);
+            }
             0x2006 => {
                 self.ppu.write_to_reg_addr(value);
             }
+            0x2007 => {
+                self.ppu.write_data(value);
+            }
             PPU_ADDRESS_SPACE_START..=PPU_ADDRESS_SPACE_END => {
-                todo!("Implement ppu!");
+                let mirror_down = addr & 0x2007;
+                self.mem_write(mirror_down, value);
             }
             PRG_ADDRESS_SPACE_START..=PRG_ADDRESS_SPACE_END => {
-                panic!("Illegal write to cartridge ROM");
+                panic!("Illegal write to cartridge ROM: {:02x}", addr);
             }
             _ => {
                 println!("Memory write at {:#04X?} ignored", addr);
