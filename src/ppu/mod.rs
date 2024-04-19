@@ -34,6 +34,10 @@ pub struct PPU {
     cycles: usize,
 }
 
+const FRAME_SCANLINE_LIMIT: u16 = 262;
+const VBLANK_SCANLINE_LIMIT: u16 = 241;
+const SCANLINE_PPU_CYCLE_LIMIT: usize = 341;
+
 impl PPU {
     /*
      * Accessing PPU memory
@@ -70,11 +74,20 @@ impl PPU {
         // Since the PPU runs three times faster than the CPU,
         // any CPU cycles are multiplied by three.
         self.cycles += cycles as usize;     
-        if self.cycles >= 341 {
+        if self.cycles >= SCANLINE_PPU_CYCLE_LIMIT {
             // don't set to zero -> eating cycles!
             self.cycles = self.cycles - 341;
             self.scanline += 1;
-            if self.scanline == 241 {
+            if self.scanline == VBLANK_SCANLINE_LIMIT {
+                if self.reg_controller.generate_nmi() {
+                    self.reg_status.set_vblank_started(true);
+                }
+
+            }
+            if self.scanline >= FRAME_SCANLINE_LIMIT {
+                self.scanline = 0;
+                self.reg_status.reset_vblank();
+                return true
             }
         } 
         false
