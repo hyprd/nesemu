@@ -82,13 +82,16 @@ impl PPU {
             self.cycles = self.cycles - SCANLINE_PPU_CYCLE_LIMIT;
             self.scanline += 1;
             if self.scanline == VBLANK_SCANLINE_LIMIT {
+                self.reg_status.set_vblank_started(true);
+                self.reg_status.set_sprite_zero_hit(false);
                 if self.reg_controller.generate_nmi() {
-                    self.reg_status.set_vblank_started(true);
+                    self.nmi_interrupt = Some(1);
                 }
 
             }
             if self.scanline >= FRAME_SCANLINE_LIMIT {
                 self.scanline = 0;
+                self.nmi_interrupt = None;
                 self.reg_status.reset_vblank();
                 return true
             }
