@@ -4,12 +4,14 @@ use reg_controller::PPUCTRL;
 use reg_mask::PPUMASK;
 use reg_scroll::PPUSCROLL;
 use reg_status::PPUSTATUS;
+use frame::Frame;
 
 pub mod reg_addr;
 pub mod reg_controller;
 pub mod reg_mask;
 pub mod reg_scroll;
 pub mod reg_status;
+pub mod frame;
 
 pub struct PPU {
     pub chr_rom: Vec<u8>,

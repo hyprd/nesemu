@@ -3,14 +3,16 @@ mod bus;
 mod cartridge;
 mod cpu;
 mod opcodes;
-mod trace;
 mod ppu;
+mod trace;
 
 use bus::Bus;
 use cartridge::MirroringType;
 use cartridge::ROM;
 use cpu::Memory;
 use cpu::CPU;
+use ppu::frame::PALETTE;
+use ppu::frame::Frame;
 use ppu::PPU;
 use rand::Rng;
 use sdl2::event::Event;
@@ -94,47 +96,47 @@ fn handle_user_input(cpu: &mut CPU, event_pump: &mut EventPump) {
     }
 }
 
+
 fn main() {
-    // let sdl_context = sdl2::init().unwrap();
-    // let video_subsystem = sdl_context.video().unwrap();
-    // let window = video_subsystem
-    //     .window("NES Emulator", (32.0 * 10.0) as u32, (32.0 * 10.0) as u32)
-    //     .position_centered()
-    //     .build()
-    //     .unwrap();
+    let sdl_context = sdl2::init().unwrap();
+    let video_subsystem = sdl_context.video().unwrap();
+    let window = video_subsystem
+        .window("NESemu", (256.0 * 3.0) as u32, (240.0 * 3.0) as u32)
+        .position_centered()
+        .build()
+        .unwrap();
 
-    // let mut canvas = window.into_canvas().present_vsync().build().unwrap();
-    // let mut event_pump = sdl_context.event_pump().unwrap();
-    // canvas.set_scale(10.0, 10.0).unwrap();
+    let mut canvas = window.into_canvas().present_vsync().build().unwrap();
+    let mut event_pump = sdl_context.event_pump().unwrap();
+    canvas.set_scale(3.0, 3.0).unwrap();
 
-    // let creator = canvas.texture_creator();
-    // let mut texture = creator
-    //     .create_texture_target(PixelFormatEnum::RGB24, 32, 32)
-    //     .unwrap();
+    let creator = canvas.texture_creator();
+    let mut texture = creator
+        .create_texture_target(PixelFormatEnum::RGB24, 256, 240)
+        .unwrap();
 
-    let cartridge: Vec<u8> = std::fs::read("roms/nmi.nes").unwrap();
-    let rom = ROM::new(&cartridge).unwrap();
-    let bus = Bus::new(rom);
-    let mut cpu = CPU::new(bus);
-    cpu.reset();
-    cpu.reg_pc = 0xC000;
+    //load the game
+    let bytes: Vec<u8> = std::fs::read("roms/pacman.nes").unwrap();
+    let rom = ROM::new(&bytes).unwrap();
 
-    let chr = vec!(1,2,3);
-    let mut ppu = PPU::new(chr, MirroringType::Vertical);
-    ppu.write_to_reg_ctrl(0b100000);
-    ppu.write_to_reg_mask(0b00011110);
-    ppu.write_to_reg_mask(0);
-    // let mut screen_state = [0_u8; 32 * 3 * 32];
-    // let mut rng = rand::thread_rng();
-    cpu.execute_with_callback(move |cpu| {
-        // println!("{}", trace(cpu));
-        //     handle_user_input(cpu, &mut event_pump);
-        //     cpu.mem_write(0xfe, rng.gen_range(1..16));
-        //     if read_screen_state(cpu, &mut screen_state) {
-        //         texture.update(None, &screen_state, 32 * 3).unwrap();
-        //         canvas.copy(&texture, None, None).unwrap();
-        //         canvas.present();
-        //     }
-        //     std::thread::sleep(std::time::Duration::new(0, 10000));
-    });
+    let tile_bank = Frame::show_tile_bank(&rom.rom_chr, 0);
+
+    texture
+        .update(None, &tile_bank.frame_data, 256 * 3)
+        .unwrap();
+    canvas.copy(&texture, None, None).unwrap();
+    canvas.present();
+
+    loop {
+        for event in event_pump.poll_iter() {
+            match event {
+                Event::Quit { .. }
+                | Event::KeyDown {
+                    keycode: Some(Keycode::Escape),
+                    ..
+                } => std::process::exit(0),
+                _ => {},
+            }
+        }
+    }
 }
