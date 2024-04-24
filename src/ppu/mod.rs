@@ -25,6 +25,8 @@ pub struct PPU {
     pub reg_mask: PPUMASK,
     pub reg_status: PPUSTATUS,
     pub reg_scroll: PPUSCROLL,
+
+    pub nmi_interrupt: Option<u8>, 
     internal_data_buffer: u8,
     
     pub oam_data: [u8; 256],
@@ -67,6 +69,7 @@ impl PPU {
             oam_address: 0,
             scanline: 0,
             cycles: 0,
+            nmi_interrupt: None,
         }
     }
 
@@ -91,6 +94,10 @@ impl PPU {
             }
         } 
         false
+    }
+
+    pub fn poll_for_nmi_interrupt(&mut self) -> Option<u8> {
+        self.nmi_interrupt.take()
     }
 
     pub fn write_to_oam_address(&mut self, value : u8) {
@@ -118,7 +125,13 @@ impl PPU {
     }
     
     pub fn write_to_reg_ctrl(&mut self, value: u8) {
+        let previous_nmi_status = self.reg_controller.generate_nmi();
         self.reg_controller.update(value);
+        // If there wasn't an NMI before, there is an NMI now from reading NMI bit in control
+        // register, and the PPU is in VBLANK... 
+        if ! previous_nmi_status && self.reg_controller.generate_nmi() && self.reg_status.in_vblank() {
+            self.nmi_interrupt = Some(1);
+        }
     }
     
     pub fn write_to_reg_mask(&mut self, value: u8) {

@@ -112,7 +112,7 @@ fn main() {
     //     .create_texture_target(PixelFormatEnum::RGB24, 32, 32)
     //     .unwrap();
 
-    let cartridge: Vec<u8> = std::fs::read("roms/nestest.nes").unwrap();
+    let cartridge: Vec<u8> = std::fs::read("roms/nmi.nes").unwrap();
     let rom = ROM::new(&cartridge).unwrap();
     let bus = Bus::new(rom);
     let mut cpu = CPU::new(bus);

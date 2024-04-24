@@ -189,12 +189,36 @@ impl CPU {
         let hh = self.stack_pop() as u16;
         hh << 8 | ll
     }
+    // #  address R/W description
+    // --- ------- --- -----------------------------------------------
+    // 1    PC     R  fetch opcode (and discard it - $00 (BRK) is forced into the opcode register instead)
+    // 2    PC     R  read next instruction byte (actually the same as above, since PC increment is suppressed. Also discarded.)
+    // 3  $0100,S  W  push PCH on stack, decrement S
+    // 4  $0100,S  W  push PCL on stack, decrement S
+    // *** At this point, the signal status determines which interrupt vector is used ***
+    // 5  $0100,S  W  push P on stack (with B flag *clear*), decrement S
+    // 6   A       R  fetch PCL (A = FFFE for IRQ, A = FFFA for NMI), set I flag
+    // 7   A       R  fetch PCH (A = FFFF for IRQ, A = FFFB for NMI)
+    fn interrupt_nmi(&mut self) {
+        self.stack_push_u16(self.reg_pc);
+        let mut flags = self.reg_status.clone();
+        flags.remove(StatusFlags::BREAK);
+        flags.insert(StatusFlags::BREAK_2);
+        self.stack_push(flags.bits());
+        self.bus.tick(2);
+        self.reg_pc = self.mem_read_u16(0xFFFA);
+        self.reg_status.insert(StatusFlags::INTERRUPT_MASK);
+    }
+
     pub fn execute_with_callback<F>(&mut self, mut callback: F)
     where
         F: FnMut(&mut CPU),
     {
         let ref jmp_table: HashMap<u8, &'static opcodes::Opcode> = *opcodes::OPCODES_JMP_TABLE;
         loop {
+            if let Some(nmi) = self.bus.poll_nmi_status() {
+                self.interrupt_nmi();
+            }
             let opcode = self.mem_read(self.reg_pc);
             self.reg_pc += 1;
             let instruction = jmp_table.get(&opcode).unwrap();

@@ -112,4 +112,8 @@ impl Bus {
         }
         self.rom[addr as usize]
     }
+
+    pub fn poll_nmi_status(&mut self) -> Option<u8> {
+        self.ppu.nmi_interrupt.take()
+    }
 }
