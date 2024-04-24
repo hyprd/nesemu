@@ -92,6 +92,7 @@ impl PPU {
             if self.scanline >= FRAME_SCANLINE_LIMIT {
                 self.scanline = 0;
                 self.nmi_interrupt = None;
+                self.reg_status.set_sprite_zero_hit(false);
                 self.reg_status.reset_vblank();
                 return true
             }
