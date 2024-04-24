@@ -219,6 +219,7 @@ impl CPU {
             if let Some(nmi) = self.bus.poll_nmi_status() {
                 self.interrupt_nmi();
             }
+            callback(self);
             let opcode = self.mem_read(self.reg_pc);
             self.reg_pc += 1;
             let instruction = jmp_table.get(&opcode).unwrap();
@@ -338,10 +339,10 @@ impl CPU {
                     return;
                 }
             }
+            self.bus.tick(instruction.cycles);
             if pc_snapshot == self.reg_pc {
                 self.reg_pc += (&instruction.length - 1) as u16;
             }
-            callback(self);
         }
     }
 
