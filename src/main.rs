@@ -11,7 +11,6 @@ use cartridge::MirroringType;
 use cartridge::ROM;
 use cpu::Memory;
 use cpu::CPU;
-use ppu::frame::PALETTE;
 use ppu::frame::Frame;
 use ppu::PPU;
 use rand::Rng;
@@ -119,7 +118,8 @@ fn main() {
     let bytes: Vec<u8> = std::fs::read("roms/pacman.nes").unwrap();
     let rom = ROM::new(&bytes).unwrap();
 
-    let tile_bank = Frame::show_tile_bank(&rom.rom_chr, 0);
+    let palette = Frame::read_palette_from_file("palettes/nes.hex");
+    let tile_bank = Frame::show_tile_bank(palette, &rom.rom_chr, 0);
 
     texture
         .update(None, &tile_bank.frame_data, 256 * 3)
