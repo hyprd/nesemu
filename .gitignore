@@ -16,6 +16,5 @@ Cargo.lock
 
 *.dll
 roms/
-palettes/
 *.log
 *.txt
