@@ -4,7 +4,6 @@ mod cartridge;
 mod cpu;
 mod opcodes;
 mod ppu;
-mod trace;
 
 use bus::Bus;
 use cartridge::MirroringType;
@@ -19,7 +18,6 @@ use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
 use sdl2::pixels::PixelFormatEnum;
 use sdl2::EventPump;
-use trace::trace;
 
 #[macro_use]
 extern crate lazy_static;
