@@ -82,6 +82,10 @@ impl Memory for CPU {
     }
 }
 
+fn page_crossed(a: u16, b: u16) -> bool {
+    a & 0xFF00 != b & 0xFF00
+}
+
 impl CPU {
     pub fn new(bus: Bus) -> Self {
         CPU {
@@ -95,26 +99,35 @@ impl CPU {
             bus,
         }
     }
-    pub fn resolve_addressing_mode(&mut self, mode: &AddressingMode) -> u16 {
+    pub fn resolve_addressing_mode(&mut self, mode: &AddressingMode) -> (u16, bool) {
+        // ABS X, ABS Y and IND Y have page boundary crossing checks
         match mode {
-            AddressingMode::IMM => self.reg_pc,
-            AddressingMode::ZP => self.mem_read(self.reg_pc) as u16,
+            AddressingMode::IMM => (self.reg_pc, false),
+            AddressingMode::ZP => (self.mem_read(self.reg_pc) as u16, false),
             AddressingMode::ZP_X => {
                 let base_address = self.mem_read(self.reg_pc);
-                base_address.wrapping_add(self.reg_x) as u16
+                (base_address.wrapping_add(self.reg_x) as u16, false)
             }
             AddressingMode::ZP_Y => {
                 let base_address = self.mem_read(self.reg_pc);
-                base_address.wrapping_add(self.reg_y) as u16
+                (base_address.wrapping_add(self.reg_y) as u16, false)
             }
-            AddressingMode::ABS => self.mem_read_u16(self.reg_pc),
+            AddressingMode::ABS => (self.mem_read_u16(self.reg_pc), false),
             AddressingMode::ABS_X => {
                 let base_address = self.mem_read_u16(self.reg_pc);
-                base_address.wrapping_add(self.reg_x as u16)
+                let effective_address = base_address.wrapping_add(self.reg_x as u16);
+                (
+                    effective_address,
+                    page_crossed(base_address, effective_address),
+                )
             }
             AddressingMode::ABS_Y => {
                 let base_address = self.mem_read_u16(self.reg_pc);
-                base_address.wrapping_add(self.reg_y as u16)
+                let effective_address = base_address.wrapping_add(self.reg_y as u16);
+                (
+                    effective_address,
+                    page_crossed(base_address, effective_address),
+                )
             }
             AddressingMode::IND_X => {
                 // IND, X -> Construct the address, then use it to reference
@@ -122,7 +135,7 @@ impl CPU {
                 let base_address = self.mem_read(self.reg_pc).wrapping_add(self.reg_x);
                 let ll = self.mem_read(base_address as u16);
                 let hh = self.mem_read(base_address.wrapping_add(1) as u16);
-                (hh as u16) << 8 | (ll as u16)
+                ((hh as u16) << 8 | (ll as u16), false)
             }
             AddressingMode::IND_Y => {
                 // IND, Y -> Similar to IND, X but Y is added after constructing
@@ -130,11 +143,15 @@ impl CPU {
                 let base_address = self.mem_read(self.reg_pc);
                 let ll = self.mem_read(base_address as u16);
                 let hh = self.mem_read(base_address.wrapping_add(1) as u16);
-                let llhh = (hh as u16) << 8 | (ll as u16);
-                llhh.wrapping_add(self.reg_y as u16)
+                let base_address = (hh as u16) << 8 | (ll as u16);
+                let effective_address = base_address.wrapping_add(self.reg_y as u16);
+                (
+                    effective_address,
+                    page_crossed(base_address, effective_address),
+                )
             }
-            AddressingMode::ACC => self.reg_a as u16,
-            AddressingMode::IMP => 0,
+            AddressingMode::ACC => (self.reg_a as u16, false),
+            AddressingMode::IMP => (0, false),
             AddressingMode::REL => {
                 panic!("Implement relative addressing");
             }
@@ -189,6 +206,7 @@ impl CPU {
         let hh = self.stack_pop() as u16;
         hh << 8 | ll
     }
+
     // #  address R/W description
     // --- ------- --- -----------------------------------------------
     // 1    PC     R  fetch opcode (and discard it - $00 (BRK) is forced into the opcode register instead)
@@ -370,7 +388,7 @@ impl CPU {
         }
     }
     fn las(&mut self, mode: &AddressingMode) {
-        let address = self.resolve_addressing_mode(mode);
+        let (address, _) = self.resolve_addressing_mode(mode);
         let value = self.mem_read(address);
         let evaluation = value & self.reg_sp;
         self.reg_a = evaluation;
@@ -379,7 +397,7 @@ impl CPU {
         self.handle_flags_z_n(evaluation);
     }
     fn rra(&mut self, mode: &AddressingMode) {
-        let address = self.resolve_addressing_mode(mode);
+        let (address, _) = self.resolve_addressing_mode(mode);
         let mut value = self.mem_read(address);
         let carry_flag = self.reg_status.contains(StatusFlags::CARRY);
         if value & 0x01 == 1 {
@@ -397,7 +415,7 @@ impl CPU {
     }
 
     fn sre(&mut self, mode: &AddressingMode) {
-        let address = self.resolve_addressing_mode(mode);
+        let (address, _) = self.resolve_addressing_mode(mode);
         let mut value = self.mem_read(address);
         if value & 0x01 == 1 {
             self.reg_status.insert(StatusFlags::CARRY);
@@ -411,7 +429,7 @@ impl CPU {
     }
 
     fn rla(&mut self, mode: &AddressingMode) {
-        let address = self.resolve_addressing_mode(mode);
+        let (address, _) = self.resolve_addressing_mode(mode);
         let mut value = self.mem_read(address);
         let carry = self.reg_status.contains(StatusFlags::CARRY);
         if value >> 7 == 1 {
@@ -433,7 +451,7 @@ impl CPU {
         self.handle_flags_z_n(self.reg_a);
     }
     fn slo(&mut self, mode: &AddressingMode) {
-        let address = self.resolve_addressing_mode(mode);
+        let (address, _) = self.resolve_addressing_mode(mode);
         let mut value = self.mem_read(address);
         if value >> 7 == 1 {
             self.reg_status.insert(StatusFlags::CARRY);
@@ -446,7 +464,7 @@ impl CPU {
         self.handle_flags_z_n(self.reg_a);
     }
     fn isc(&mut self, mode: &AddressingMode) {
-        let address = self.resolve_addressing_mode(mode);
+        let (address, _) = self.resolve_addressing_mode(mode);
         let mut value = self.mem_read(address);
         value = value.wrapping_add(1);
         self.mem_write(address, value);
@@ -456,7 +474,7 @@ impl CPU {
     fn dcp(&mut self, mode: &AddressingMode) {
         // This instruction does not affect internal registers, so don't write
         // result to reg_a!
-        let address = self.resolve_addressing_mode(mode);
+        let (address, _) = self.resolve_addressing_mode(mode);
         let mut value = self.mem_read(address).wrapping_sub(1);
         self.mem_write(address, value);
         if value <= self.reg_a {
@@ -467,46 +485,55 @@ impl CPU {
         self.handle_flags_z_n(self.reg_a.wrapping_sub(value));
     }
     fn lax(&mut self, mode: &AddressingMode) {
-        let address = self.resolve_addressing_mode(mode);
+        let (address, _) = self.resolve_addressing_mode(mode);
         let value = self.mem_read(address);
         self.reg_a = value;
         self.reg_x = value;
         self.handle_flags_z_n(value);
     }
     fn sax(&mut self, mode: &AddressingMode) {
-        let address = self.resolve_addressing_mode(mode);
+        let (address, _) = self.resolve_addressing_mode(mode);
         let value_a = self.reg_a;
         let value_x = self.reg_x;
         self.mem_write(address, value_a & value_x);
     }
     fn lda(&mut self, mode: &AddressingMode) {
-        let address = self.resolve_addressing_mode(mode);
+        let (address, boundary_cross) = self.resolve_addressing_mode(mode);
         let value = self.mem_read(address);
         self.reg_a = value;
         self.handle_flags_z_n(value);
+        if boundary_cross {
+            self.bus.tick(1);
+        }
     }
     fn ldx(&mut self, mode: &AddressingMode) {
-        let address = self.resolve_addressing_mode(mode);
+        let (address, boundary_cross) = self.resolve_addressing_mode(mode);
         let value = self.mem_read(address);
         self.reg_x = value;
         self.handle_flags_z_n(value);
+        if boundary_cross {
+            self.bus.tick(1);
+        }
     }
     fn ldy(&mut self, mode: &AddressingMode) {
-        let address = self.resolve_addressing_mode(mode);
+        let (address, boundary_cross) = self.resolve_addressing_mode(mode);
         let value = self.mem_read(address);
         self.reg_y = value;
         self.handle_flags_z_n(value);
+        if boundary_cross {
+            self.bus.tick(1);
+        }
     }
     fn sta(&mut self, mode: &AddressingMode) {
-        let address = self.resolve_addressing_mode(mode);
+        let (address, _) = self.resolve_addressing_mode(mode);
         self.mem_write(address, self.reg_a);
     }
     fn stx(&mut self, mode: &AddressingMode) {
-        let address = self.resolve_addressing_mode(mode);
+        let (address, _) = self.resolve_addressing_mode(mode);
         self.mem_write(address, self.reg_x);
     }
     fn sty(&mut self, mode: &AddressingMode) {
-        let address = self.resolve_addressing_mode(mode);
+        let (address, _) = self.resolve_addressing_mode(mode);
         self.mem_write(address, self.reg_y);
     }
     fn tax(&mut self) {
@@ -562,7 +589,7 @@ impl CPU {
         self.handle_flags_z_n(self.reg_a);
     }
     fn asl(&mut self, mode: &AddressingMode) {
-        let address = self.resolve_addressing_mode(mode);
+        let (address, _) = self.resolve_addressing_mode(mode);
         let mut value = self.mem_read(address);
         if value >> 7 == 1 {
             self.reg_status.insert(StatusFlags::CARRY);
@@ -589,7 +616,7 @@ impl CPU {
         }
     }
     fn lsr(&mut self, mode: &AddressingMode) {
-        let address = self.resolve_addressing_mode(mode);
+        let (address, _) = self.resolve_addressing_mode(mode);
         let mut value = self.mem_read(address);
         if value & 0x01 == 1 {
             self.reg_status.insert(StatusFlags::CARRY);
@@ -621,7 +648,7 @@ impl CPU {
         self.handle_flags_z_n(self.reg_a);
     }
     fn rol(&mut self, mode: &AddressingMode) {
-        let address = self.resolve_addressing_mode(mode);
+        let (address, _) = self.resolve_addressing_mode(mode);
         let mut value = self.mem_read(address);
         let carry_flag = self.reg_status.contains(StatusFlags::CARRY);
         if value >> 7 == 1 {
@@ -652,7 +679,7 @@ impl CPU {
         self.handle_flags_z_n(self.reg_a);
     }
     fn ror(&mut self, mode: &AddressingMode) {
-        let address = self.resolve_addressing_mode(mode);
+        let (address, _) = self.resolve_addressing_mode(mode);
         let mut value = self.mem_read(address);
         let carry_flag = self.reg_status.contains(StatusFlags::CARRY);
         if value & 0x01 == 1 {
@@ -668,13 +695,16 @@ impl CPU {
         self.handle_flags_z_n(value);
     }
     fn and(&mut self, mode: &AddressingMode) {
-        let address = self.resolve_addressing_mode(mode);
+        let (address, boundary_cross) = self.resolve_addressing_mode(mode);
         let value = self.mem_read(address);
         self.reg_a &= value;
         self.handle_flags_z_n(self.reg_a);
+        if boundary_cross {
+            self.bus.tick(1);
+        }
     }
     fn bit(&mut self, mode: &AddressingMode) {
-        let address = self.resolve_addressing_mode(mode);
+        let (address, _) = self.resolve_addressing_mode(mode);
         let value = self.mem_read(address);
         if self.reg_a & value == 0 {
             self.reg_status.insert(StatusFlags::ZERO);
@@ -689,19 +719,25 @@ impl CPU {
             .set(StatusFlags::OVERFLOW, value & 0b1000000 > 0);
     }
     fn eor(&mut self, mode: &AddressingMode) {
-        let address = self.resolve_addressing_mode(mode);
+        let (address, boundary_cross) = self.resolve_addressing_mode(mode);
         let value = self.mem_read(address);
         self.reg_a ^= value;
         self.handle_flags_z_n(self.reg_a);
+        if boundary_cross {
+            self.bus.tick(1);
+        }
     }
     fn ora(&mut self, mode: &AddressingMode) {
-        let address = self.resolve_addressing_mode(mode);
+        let (address, boundary_cross) = self.resolve_addressing_mode(mode);
         let value = self.mem_read(address);
         self.reg_a |= value;
         self.handle_flags_z_n(self.reg_a);
+        if boundary_cross {
+            self.bus.tick(1);
+        }
     }
     fn cmp(&mut self, mode: &AddressingMode, compare: u8) {
-        let address = self.resolve_addressing_mode(mode);
+        let (address, boundary_cross) = self.resolve_addressing_mode(mode);
         let value = self.mem_read(address);
         if value <= compare {
             self.reg_status.insert(StatusFlags::CARRY);
@@ -709,6 +745,9 @@ impl CPU {
             self.reg_status.remove(StatusFlags::CARRY)
         }
         self.handle_flags_z_n(compare.wrapping_sub(value));
+        if boundary_cross {
+            self.bus.tick(1);
+        }
     }
     fn cpx(&mut self, mode: &AddressingMode) {
         self.cmp(mode, self.reg_x);
@@ -743,18 +782,24 @@ impl CPU {
     }
 
     fn adc(&mut self, mode: &AddressingMode) {
-        let address = self.resolve_addressing_mode(mode);
+        let (address, boundary_cross) = self.resolve_addressing_mode(mode);
         let value = self.mem_read(address);
         self.add_to_a(value);
+        if boundary_cross {
+            self.bus.tick(1);
+        }
     }
 
     fn sbc(&mut self, mode: &AddressingMode) {
-        let address = self.resolve_addressing_mode(mode);
+        let (address, boundary_cross) = self.resolve_addressing_mode(mode);
         let value = self.mem_read(address) as i8;
         self.add_to_a(value.wrapping_neg().wrapping_sub(1) as u8);
+        if boundary_cross {
+            self.bus.tick(1);
+        }
     }
     fn dec(&mut self, mode: &AddressingMode) {
-        let address = self.resolve_addressing_mode(mode);
+        let (address, _) = self.resolve_addressing_mode(mode);
         let mut value = self.mem_read(address);
         value = value.wrapping_sub(1);
         self.mem_write(address, value);
@@ -769,7 +814,7 @@ impl CPU {
         self.handle_flags_z_n(self.reg_y);
     }
     fn inc(&mut self, mode: &AddressingMode) {
-        let address = self.resolve_addressing_mode(mode);
+        let (address, _) = self.resolve_addressing_mode(mode);
         let mut value = self.mem_read(address);
         value = value.wrapping_add(1);
         self.mem_write(address, value);
