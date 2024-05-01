@@ -3,7 +3,6 @@ use rand::Rng;
 
 const WIDTH: usize = 256;
 const HEIGHT: usize = 240;
-const BACKGROUND_TILE_MAX: u16 = 960;
 
 pub struct Frame {
     pub frame_data: Vec<u8>,
@@ -71,37 +70,34 @@ impl Frame {
     }
 
     pub fn render(ppu: &PPU, frame: &mut Frame, palette: Vec<(u8, u8, u8)>) {
-        let bg_tbl_address = ppu.reg_controller.background_pattern_table_address() as u16;
-        
-        // Iterate through background tile data
-        for i in 0..BACKGROUND_TILE_MAX {
-            let tile_entry = (bg_tbl_address + ppu.vram[i as usize] as u16) * 16;
-            let tile_x = i & 32;
-            let tile_y = i / 32;
-            let tile_data = &ppu.chr_rom[(tile_entry) as usize..=(tile_entry + 15) as usize];
-            let background_palette = Self::get_background_palette(ppu, tile_x as usize, tile_y as usize);
-            for y in 0..7 {
+        let bank = ppu.reg_controller.background_pattern_table_address();
+        for i in 0..0x3C0 {
+            let tile = ppu.vram[i] as u16;
+            let col = i % 32;
+            let row = i / 32;
+            let tile_data =
+                &ppu.chr_rom[(bank + tile * 16) as usize..=(bank + tile * 16 + 15) as usize];
+            let background_palette = Self::get_background_palette(ppu, row, col);
+            for y in 0..=7 {
                 let mut hh = tile_data[y];
                 let mut ll = tile_data[y + 8];
-                for x in (0..7).rev() {
-                    let value = (0x01 & ll) << 1 | (0x01 & hh);
-                    hh >>= 1;
+                for x in (0..=7).rev() {
+                    let value = (1 & ll) << 1 | (0x01 & hh);
                     ll >>= 1;
+                    hh >>= 1;
                     let colour = match value {
                         0b00 => palette[ppu.palette_table[0] as usize],
                         0b01 => palette[background_palette[1] as usize],
                         0b10 => palette[background_palette[2] as usize],
                         0b11 => palette[background_palette[3] as usize],
-                        _ => panic!("Illegal palette value"),
+                        _ => panic!("Couldn't set BG palette colour"),
                     };
-                    let xpos = (tile_x * 8 + x) as usize;
-                    let ypos = (tile_y * 8 + y as u16) as usize;
-                    frame.set_pixel(xpos, ypos, colour);
+                    frame.set_pixel(col * 8 + x, row * 8 + y, colour);
                 }
             }
         }
 
-        // Iterate throguh OAM data
+        // // Iterate throguh OAM data
         for j in (0..256).step_by(4).rev() {
             /*
              * BYTE 0 - Y POSITION TOP
@@ -136,10 +132,26 @@ impl Frame {
                         _ => panic!("Illegal palette value"),
                     };
                     match (attributes >> 7 & 0x01, attributes >> 6 & 0x01) {
-                        (0, 0) => frame.set_pixel((tile_x + x) as usize, (tile_y + y as u8) as usize, colour),
-                        (1, 0) => frame.set_pixel((tile_x + 7 - x) as usize, (tile_y + y as u8) as usize, colour),
-                        (0, 1) => frame.set_pixel((tile_x + x) as usize, (tile_y + 7 - y as u8) as usize, colour),
-                        (1, 1) => frame.set_pixel((tile_x + 7 - x) as usize, (tile_y + 7 + y as u8) as usize, colour),
+                        (0, 0) => frame.set_pixel(
+                            (tile_x + x) as usize,
+                            (tile_y + y as u8) as usize,
+                            colour,
+                        ),
+                        (1, 0) => frame.set_pixel(
+                            (tile_x + 7 - x) as usize,
+                            (tile_y + y as u8) as usize,
+                            colour,
+                        ),
+                        (0, 1) => frame.set_pixel(
+                            (tile_x + x) as usize,
+                            (tile_y + 7 - y as u8) as usize,
+                            colour,
+                        ),
+                        (1, 1) => frame.set_pixel(
+                            (tile_x + 7 - x) as usize,
+                            (tile_y + 7 + y as u8) as usize,
+                            colour,
+                        ),
                         (_, _) => {}
                     }
                 }

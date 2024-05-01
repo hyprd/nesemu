@@ -115,8 +115,8 @@ impl PPU {
         self.oam_address = self.oam_address.wrapping_add(1);
     }
 
-    pub fn write_to_oam_dma(&mut self, vec: Vec<u8>) {
-        for x in vec.iter() {
+    pub fn write_to_oam_dma(&mut self, data: &[u8; 256]) {
+        for x in data.iter() {
             self.oam_data[self.oam_address as usize] = *x;
             self.oam_address = self.oam_address.wrapping_add(1);
         }

@@ -16,7 +16,45 @@ pub struct Bus<'call> {
     rom: Vec<u8>,
     ppu: PPU,
     cycles: usize,
-    callback: Box<dyn FnMut(&PPU) + 'call>
+    callback: Box<dyn FnMut(&PPU) + 'call>,
+}
+
+impl<'a> Bus<'a> {
+    pub fn new<'call, F>(rom: ROM, callback: F) -> Bus<'call>
+    where
+        F: FnMut(&PPU) + 'call,
+    {
+        let ppu = PPU::new(rom.rom_chr, rom.mirroring_type);
+        Bus {
+            vram: [0; 0x800],
+            rom: rom.rom_prg,
+            ppu,
+            cycles: 0,
+            callback: Box::from(callback),
+        }
+    }
+
+    pub fn tick(&mut self, cycles: u8) {
+        self.cycles += cycles as usize;
+        // Cheat way to render a screen is to read the screen state before
+        // the CPu starts to render a new frame.
+        let new_frame = self.ppu.tick(cycles * 3);
+        if new_frame {
+            (self.callback)(&self.ppu);
+        }
+    }
+
+    fn read_prg_rom(&self, mut addr: u16) -> u8 {
+        addr -= 0x8000;
+        if self.rom.len() == 0x4000 && addr >= 0x4000 {
+            addr = addr % 0x4000;
+        }
+        self.rom[addr as usize]
+    }
+
+    pub fn poll_nmi_status(&mut self) -> Option<u8> {
+        self.ppu.nmi_interrupt.take()
+    }
 }
 
 impl Memory for Bus<'_> {
@@ -30,7 +68,8 @@ impl Memory for Bus<'_> {
                 self.vram[(addr & mask) as usize]
             }
             0x2000 | 0x2001 | 0x2003 | 0x2005 | 0x2006 | 0x4014 => {
-                panic!("Illegal read to write-only MMIO registers");
+                //panic!("Illegal read to write-only MMIO registers");
+                0
             }
             0x2002 => self.ppu.read_status(),
             0x2004 => self.ppu.read_oam_data(),
@@ -39,6 +78,7 @@ impl Memory for Bus<'_> {
                 let mirror_down = addr & 0x2007;
                 self.mem_read(mirror_down)
             }
+            0x4000..=0x4017 => 0,
             PRG_ADDRESS_SPACE_START..=PRG_ADDRESS_SPACE_END => self.read_prg_rom(addr),
             _ => {
                 println!("Memory access at {:#04X?} ignored", addr);
@@ -76,19 +116,28 @@ impl Memory for Bus<'_> {
             0x2007 => {
                 self.ppu.write_data(value);
             }
+            0x4000..=0x4013 | 0x4015 | 0x4016 | 0x4017 => {}
             0x4014 => {
                 // OAMDMA
-                // Writing anyhting to this register sends 0xNN00 -> 0xNNFF to 
+                // Writing anyhting to this register sends 0xNN00 -> 0xNNFF to
                 // the PPU OAM table.
                 //
                 // This should only occur within VBLANK because OAM DRAM decays
                 // when rendering is disabled.
-                let mut buf: Vec<u8> = vec![];
-                let hh: u16 = (value as u16) << 8;
-                for i in 0..256 {
-                    buf.push(self.mem_read(hh + i));
+                // let mut buf: Vec<u8> = vec![];
+                // let hh: u16 = (value as u16) << 8;
+                // for i in 0..256 {
+                //     buf.push(self.mem_read(hh + i));
+                // }
+                // println!("BOOOGOERS {:?}", buf);
+                // self.ppu.write_to_oam_dma(buf);
+                let mut buffer: [u8; 256] = [0; 256];
+                let hi: u16 = (value as u16) << 8;
+                for i in 0..256u16 {
+                    buffer[i as usize] = self.mem_read(hi + i);
                 }
-                self.ppu.write_to_oam_dma(buf);
+                self.ppu.write_to_oam_dma(&buffer);
+
             }
             PPU_ADDRESS_SPACE_START..=PPU_ADDRESS_SPACE_END => {
                 let mirror_down = addr & 0x2007;
@@ -104,37 +153,4 @@ impl Memory for Bus<'_> {
     }
 }
 
-impl<'a> Bus<'a> {
-    pub fn new<'call, F>(rom: ROM, callback: F) -> Bus<'call> where F: FnMut(&PPU) + 'call, {
-        let ppu = PPU::new(rom.rom_chr, rom.mirroring_type);
-        Bus {
-            vram: [0; 0x800],
-            rom: rom.rom_prg,
-            ppu,
-            cycles: 0,
-            callback: Box::from(callback),
-        }
-    }
 
-    pub fn tick(&mut self, cycles: u8) {
-        self.cycles += cycles as usize;
-        // Cheat way to render a screen is to read the screen state before 
-        // the CPu starts to render a new frame.
-        let new_frame = self.ppu.tick(cycles * 3);
-        if new_frame {
-            (self.callback)(&self.ppu);
-        }
-    }
-
-    fn read_prg_rom(&self, mut addr: u16) -> u8 {
-        addr -= 0x8000;
-        if self.rom.len() == 0x4000 && addr >= 0x4000 {
-            addr = addr % 0x4000;
-        }
-        self.rom[addr as usize]
-    }
-
-    pub fn poll_nmi_status(&mut self) -> Option<u8> {
-        self.ppu.nmi_interrupt.take()
-    }
-}

@@ -222,9 +222,9 @@ impl<'a> CPU<'a> {
         flags.remove(StatusFlags::BREAK);
         flags.insert(StatusFlags::BREAK_2);
         self.stack_push(flags.bits());
+        self.reg_status.insert(StatusFlags::INTERRUPT_MASK);
         self.bus.tick(2);
         self.reg_pc = self.mem_read_u16(0xFFFA);
-        self.reg_status.insert(StatusFlags::INTERRUPT_MASK);
     }
 
     pub fn execute_with_callback<F>(&mut self, mut callback: F)

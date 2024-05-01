@@ -93,7 +93,6 @@ fn handle_user_input(cpu: &mut CPU, event_pump: &mut EventPump) {
     }
 }
 
-
 fn main() {
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
@@ -112,20 +111,16 @@ fn main() {
         .create_texture_target(PixelFormatEnum::RGB24, 256, 240)
         .unwrap();
 
-    //load the game
     let bytes: Vec<u8> = std::fs::read("roms/pacman.nes").unwrap();
     let rom = ROM::new(&bytes).unwrap();
 
-    let palette = Frame::read_palette_from_file("palettes/nes.hex");
-    let tile_bank = Frame::show_tile_bank(palette, &rom.rom_chr, 0);
-
-    texture
-        .update(None, &tile_bank.frame_data, 256 * 3)
-        .unwrap();
-    canvas.copy(&texture, None, None).unwrap();
-    canvas.present();
-
-    loop {
+    let mut frame = Frame::new();
+    let bus = Bus::new(rom, move |ppu: &PPU| {
+        let palette = Frame::read_palette_from_file("palettes/nes.hex");
+        Frame::render(ppu, &mut frame, palette);
+        texture.update(None, &frame.frame_data, 256 * 3).unwrap();
+        canvas.copy(&texture, None, None).unwrap();
+        canvas.present();
         for event in event_pump.poll_iter() {
             match event {
                 Event::Quit { .. }
@@ -133,8 +128,11 @@ fn main() {
                     keycode: Some(Keycode::Escape),
                     ..
                 } => std::process::exit(0),
-                _ => {},
+                _ => {}
             }
         }
-    }
+    });
+    let mut cpu = CPU::new(bus);
+    cpu.reset();
+    cpu.run();
 }
