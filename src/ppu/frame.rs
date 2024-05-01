@@ -72,23 +72,26 @@ impl Frame {
 
     pub fn render(ppu: &PPU, frame: &mut Frame, palette: Vec<(u8, u8, u8)>) {
         let bg_tbl_address = ppu.reg_controller.background_pattern_table_address() as u16;
+        
+        // Iterate through background tile data
         for i in 0..BACKGROUND_TILE_MAX {
             let tile_entry = (bg_tbl_address + ppu.vram[i as usize] as u16) * 16;
             let tile_x = i & 32;
             let tile_y = i / 32;
             let tile_data = &ppu.chr_rom[(tile_entry) as usize..=(tile_entry + 15) as usize];
+            let background_palette = Self::get_background_palette(ppu, tile_x as usize, tile_y as usize);
             for y in 0..7 {
                 let mut hh = tile_data[y];
                 let mut ll = tile_data[y + 8];
                 for x in (0..7).rev() {
-                    let value = (0x01 & hh) << 1 | (0x01 & ll);
+                    let value = (0x01 & ll) << 1 | (0x01 & hh);
                     hh >>= 1;
                     ll >>= 1;
                     let colour = match value {
-                        0b00 => palette[0x01],
-                        0b01 => palette[0x23],
-                        0b10 => palette[0x26],
-                        0b11 => palette[0x30],
+                        0b00 => palette[ppu.palette_table[0] as usize],
+                        0b01 => palette[background_palette[1] as usize],
+                        0b10 => palette[background_palette[2] as usize],
+                        0b11 => palette[background_palette[3] as usize],
                         _ => panic!("Illegal palette value"),
                     };
                     let xpos = (tile_x * 8 + x) as usize;
@@ -97,7 +100,53 @@ impl Frame {
                 }
             }
         }
+
+        // Iterate throguh OAM data
+        for j in (0..256).step_by(4).rev() {
+            /*
+             * BYTE 0 - Y POSITION TOP
+             * BYTE 1 = TILE INDEX
+             * BYTE 2 - ATTRIBUTES
+             * BYTE 3 - X POSITION LEFT
+             */
+            let tile_y = ppu.oam_data[j];
+            let tile_index = ppu.oam_data[j + 1] as u16;
+            let attributes = ppu.oam_data[j + 2];
+            let tile_x = ppu.oam_data[j + 3];
+            let flip_vertical = (attributes >> 7) & 0x01;
+            let flip_horizontal = (attributes >> 6) & 0x01;
+            let palette_index = attributes & 0b11;
+            let sprite_palette = Self::get_sprite_palette(ppu, palette_index);
+            let bank: u16 = ppu.reg_controller.sprite_pattern_table_address();
+            let tile = &ppu.chr_rom
+                [(bank + tile_index * 16) as usize..=(bank + tile_index * 16 + 15) as usize];
+            for y in 0..=7 {
+                let mut hh = tile[y];
+                let mut ll = tile[y + 8];
+                'k: for x in (0..=7).rev() {
+                    let value = (0x01 & hh) << 1 | (0x01 & ll);
+                    hh >>= 1;
+                    ll >>= 1;
+                    // Assign colour of a given pixel
+                    let colour = match value {
+                        0b00 => continue 'k,
+                        0b01 => palette[sprite_palette[1] as usize],
+                        0b10 => palette[sprite_palette[2] as usize],
+                        0b11 => palette[sprite_palette[3] as usize],
+                        _ => panic!("Illegal palette value"),
+                    };
+                    match (attributes >> 7 & 0x01, attributes >> 6 & 0x01) {
+                        (0, 0) => frame.set_pixel((tile_x + x) as usize, (tile_y + y as u8) as usize, colour),
+                        (1, 0) => frame.set_pixel((tile_x + 7 - x) as usize, (tile_y + y as u8) as usize, colour),
+                        (0, 1) => frame.set_pixel((tile_x + x) as usize, (tile_y + 7 - y as u8) as usize, colour),
+                        (1, 1) => frame.set_pixel((tile_x + 7 - x) as usize, (tile_y + 7 + y as u8) as usize, colour),
+                        (_, _) => {}
+                    }
+                }
+            }
+        }
     }
+
     pub fn show_tile_bank(palette: Vec<(u8, u8, u8)>, chr_rom: &Vec<u8>, bank: usize) -> Frame {
         if bank > 1 {
             panic!("Tile bank choice greater than 1");

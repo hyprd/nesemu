@@ -86,7 +86,7 @@ fn page_crossed(a: u16, b: u16) -> bool {
 }
 
 impl<'a> CPU<'a> {
-    pub fn new(bus: Bus) -> Self {
+    pub fn new<'b>(bus: Bus<'b>) -> CPU<'b> {
         CPU {
             reg_a: 0,
             reg_x: 0,
