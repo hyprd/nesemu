@@ -1,5 +1,5 @@
-use rand::Rng;
 use crate::ppu::PPU;
+use rand::Rng;
 
 const WIDTH: usize = 256;
 const HEIGHT: usize = 240;
@@ -16,7 +16,7 @@ impl Frame {
         }
     }
 
-    pub fn read_palette_from_file(file_name: &str) -> Vec<(u8,u8,u8)> {
+    pub fn read_palette_from_file(file_name: &str) -> Vec<(u8, u8, u8)> {
         let mut palette_vec: Vec<(u8, u8, u8)> = vec![];
         for line in std::fs::read_to_string(file_name).unwrap().lines() {
             let palette_one = u8::from_str_radix(&line[0..2], 16).unwrap();
@@ -40,38 +40,38 @@ impl Frame {
     }
 
     pub fn render(ppu: &PPU, frame: &mut Frame, palette: Vec<(u8, u8, u8)>) {
-    let bg_tbl_address = ppu.reg_controller.background_pattern_table_address() as u16;
-    for i in 0..BACKGROUND_TILE_MAX {
-        let tile_entry = (bg_tbl_address + ppu.vram[i as usize] as u16) * 16;
-        let tile_x = i & 32;
-        let tile_y = i / 32;
-        let tile_data = &ppu.chr_rom[(tile_entry) as usize..=(tile_entry + 15) as usize];
-        for y in 0..7 {
-            let mut hh = tile_data[y];
-            let mut ll = tile_data[y + 8];
-            for x in (0..7).rev() {
-                let value = (0x01 & hh) << 1 | (0x01 & ll);
-                hh >>= 1;
-                ll >>= 1;
-                let colour = match value {
-                    0b00 => palette[0x01],
-                    0b01 => palette[0x23],
-                    0b10 => palette[0x26],
-                    0b11 => palette[0x30],
-                    _ => panic!("Illegal palette value"),
-                };
-                let xpos = (tile_x * 8 + x) as usize;
-                let ypos = (tile_y * 8 + y as u16) as usize;
-                frame.set_pixel(xpos, ypos, colour);
+        let bg_tbl_address = ppu.reg_controller.background_pattern_table_address() as u16;
+        for i in 0..BACKGROUND_TILE_MAX {
+            let tile_entry = (bg_tbl_address + ppu.vram[i as usize] as u16) * 16;
+            let tile_x = i & 32;
+            let tile_y = i / 32;
+            let tile_data = &ppu.chr_rom[(tile_entry) as usize..=(tile_entry + 15) as usize];
+            for y in 0..7 {
+                let mut hh = tile_data[y];
+                let mut ll = tile_data[y + 8];
+                for x in (0..7).rev() {
+                    let value = (0x01 & hh) << 1 | (0x01 & ll);
+                    hh >>= 1;
+                    ll >>= 1;
+                    let colour = match value {
+                        0b00 => palette[0x01],
+                        0b01 => palette[0x23],
+                        0b10 => palette[0x26],
+                        0b11 => palette[0x30],
+                        _ => panic!("Illegal palette value"),
+                    };
+                    let xpos = (tile_x * 8 + x) as usize;
+                    let ypos = (tile_y * 8 + y as u16) as usize;
+                    frame.set_pixel(xpos, ypos, colour);
+                }
             }
         }
     }
-}
     pub fn show_tile_bank(palette: Vec<(u8, u8, u8)>, chr_rom: &Vec<u8>, bank: usize) -> Frame {
         if bank > 1 {
             panic!("Tile bank choice greater than 1");
         }
-        
+
         let mut rng = rand::thread_rng();
         let mut palette_indexes: Vec<usize> = vec![];
         for p in 0..4 {

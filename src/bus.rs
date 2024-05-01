@@ -118,7 +118,12 @@ impl<'a> Bus<'a> {
 
     pub fn tick(&mut self, cycles: u8) {
         self.cycles += cycles as usize;
-        self.ppu.tick(cycles * 3);
+        // Cheat way to render a screen is to read the screen state before 
+        // the CPu starts to render a new frame.
+        let new_frame = self.ppu.tick(cycles * 3);
+        if new_frame {
+            (self.callback)(&self.ppu);
+        }
     }
 
     fn read_prg_rom(&self, mut addr: u16) -> u8 {
