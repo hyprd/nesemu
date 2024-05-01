@@ -75,6 +75,20 @@ impl Memory for Bus {
             0x2007 => {
                 self.ppu.write_data(value);
             }
+            0x4014 => {
+                // OAMDMA
+                // Writing anyhting to this register sends 0xNN00 -> 0xNNFF to 
+                // the PPU OAM table.
+                //
+                // This should only occur within VBLANK because OAM DRAM decays
+                // when rendering is disabled.
+                let mut buf: Vec<u8> = vec![];
+                let hh: u16 = (value as u16) << 8;
+                for i in 0..256 {
+                    buf.push(self.mem_read(hh + i));
+                }
+                self.ppu.write_to_oam_dma(buf);
+            }
             PPU_ADDRESS_SPACE_START..=PPU_ADDRESS_SPACE_END => {
                 let mirror_down = addr & 0x2007;
                 self.mem_write(mirror_down, value);
