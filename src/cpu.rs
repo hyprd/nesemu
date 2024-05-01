@@ -6,15 +6,14 @@ use crate::bus::Bus;
 use crate::opcodes;
 use std::collections::HashMap;
 
-pub struct CPU {
+pub struct CPU<'a> {
     pub reg_a: u8,
     pub reg_x: u8,
     pub reg_y: u8,
     pub reg_pc: u16,
     pub reg_sp: u8,
     pub reg_status: StatusFlags,
-    pub bus: Bus,
-    // memory: [u8; 0xFFFF],
+    pub bus: Bus<'a>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -67,7 +66,7 @@ pub trait Memory {
     }
 }
 
-impl Memory for CPU {
+impl Memory for CPU<'_> {
     fn mem_read(&mut self, addr: u16) -> u8 {
         self.bus.mem_read(addr)
     }
@@ -86,7 +85,7 @@ fn page_crossed(a: u16, b: u16) -> bool {
     a & 0xFF00 != b & 0xFF00
 }
 
-impl CPU {
+impl<'a> CPU<'a> {
     pub fn new(bus: Bus) -> Self {
         CPU {
             reg_a: 0,

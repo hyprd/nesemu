@@ -11,14 +11,15 @@ const PPU_ADDRESS_SPACE_END: u16 = 0x3FFF;
 const PRG_ADDRESS_SPACE_START: u16 = 0x8000;
 const PRG_ADDRESS_SPACE_END: u16 = 0xFFFF;
 
-pub struct Bus {
+pub struct Bus<'call> {
     vram: [u8; 0x800],
     rom: Vec<u8>,
     ppu: PPU,
     cycles: usize,
+    callback: Box<dyn FnMut(&PPU) + 'call>
 }
 
-impl Memory for Bus {
+impl Memory for Bus<'_> {
     fn mem_read(&mut self, addr: u16) -> u8 {
         match addr {
             RAM_ADDRESS_SPACE_START..=RAM_ADDRESS_SPACE_END => {
@@ -103,14 +104,15 @@ impl Memory for Bus {
     }
 }
 
-impl Bus {
-    pub fn new(rom: ROM) -> Self {
+impl<'a> Bus<'a> {
+    pub fn new<'call, F>(rom: ROM, callback: F) -> Bus<'call> where F: FnMut(&PPU) + 'call, {
         let ppu = PPU::new(rom.rom_chr, rom.mirroring_type);
         Bus {
             vram: [0; 0x800],
             rom: rom.rom_prg,
             ppu,
             cycles: 0,
+            callback: Box::from(callback),
         }
     }
 
