@@ -108,7 +108,7 @@ impl Frame {
             let tile_y = ppu.oam_data[j];
             let tile_index = ppu.oam_data[j + 1] as u16;
             let attributes = ppu.oam_data[j + 2];
-            let tile_x = ppu.oam_data[j + 3];
+            let tile_x = ppu.oam_data[j + 3] as usize;
             let flip_vertical = (attributes >> 7) & 0x01;
             let flip_horizontal = (attributes >> 6) & 0x01;
             let palette_index = attributes & 0b11;
@@ -133,23 +133,23 @@ impl Frame {
                     };
                     match (attributes >> 6 & 0x01, attributes >> 7 & 0x01) {
                         (0, 0) => frame.set_pixel(
-                            (tile_x + x) as usize,
-                            (tile_y + y as u8) as usize,
+                            (tile_x.wrapping_add(x)) as usize,
+                            (tile_y.wrapping_add(y as u8) as usize),
                             colour,
                         ),
                         (1, 0) => frame.set_pixel(
-                            (tile_x + 7 - x) as usize,
-                            (tile_y + y as u8) as usize,
+                            (tile_x.wrapping_add(7).wrapping_sub(x)) as usize,
+                            (tile_y.wrapping_add(y as u8)) as usize,
                             colour,
                         ),
                         (0, 1) => frame.set_pixel(
-                            (tile_x + x) as usize,
-                            (tile_y + 7 - y as u8) as usize,
+                            (tile_x.wrapping_add(x)) as usize,
+                            (tile_y.wrapping_add(7).wrapping_sub(y as u8)) as usize,
                             colour,
                         ),
                         (1, 1) => frame.set_pixel(
-                            (tile_x + 7 - x) as usize,
-                            (tile_y + 7 - y as u8) as usize,
+                            (tile_x.wrapping_add(7).wrapping_sub(x)) as usize,
+                            (tile_y.wrapping_add(7).wrapping_sub(y as u8)) as usize,
                             colour,
                         ),
                         (_, _) => {}
