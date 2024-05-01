@@ -30,6 +30,37 @@ impl Frame {
         palette_vec
     }
 
+    fn get_background_palette(ppu: &PPU, row: usize, col: usize) -> Vec<u8> {
+        // https://www.nesdev.org/wiki/PPU_attribute_tables
+        let attribute_table_index = row / 4 * 8 + col / 4;
+        // Colour palette that exists in nametable..
+        let attribute_byte = ppu.vram[960 + attribute_table_index];
+        let palette_index = match (col % 4 / 2, row % 4 / 2) {
+            (0, 0) => attribute_byte & 0b11,
+            (1, 0) => (attribute_byte >> 2) & 0b11,
+            (0, 1) => (attribute_byte >> 4) & 0b11,
+            (1, 1) => (attribute_byte >> 6) & 0b11,
+            (_, _) => panic!("Invalid index value fetching background palette"),
+        };
+        let start: usize = 1 + (palette_index as usize) * 4;
+        vec![
+            ppu.palette_table[0],
+            ppu.palette_table[start],
+            ppu.palette_table[start + 1],
+            ppu.palette_table[start + 2],
+        ]
+    }
+
+    fn get_sprite_palette(ppu: &PPU, palette_index: u8) -> Vec<u8> {
+        let start = (palette_index * 4 + 0x11) as usize;
+        vec![
+            0,
+            ppu.palette_table[start],
+            ppu.palette_table[start + 1],
+            ppu.palette_table[start + 2],
+        ]
+    }
+
     pub fn set_pixel(&mut self, x_pos: usize, y_pos: usize, colour: (u8, u8, u8)) {
         let base = y_pos * 3 * WIDTH + x_pos * 3;
         if base + 2 < self.frame_data.len() {
