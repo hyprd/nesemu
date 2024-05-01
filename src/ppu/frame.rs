@@ -109,8 +109,6 @@ impl Frame {
             let tile_index = ppu.oam_data[j + 1] as u16;
             let attributes = ppu.oam_data[j + 2];
             let tile_x = ppu.oam_data[j + 3] as usize;
-            let flip_vertical = (attributes >> 7) & 0x01;
-            let flip_horizontal = (attributes >> 6) & 0x01;
             let palette_index = attributes & 0b11;
             let sprite_palette = Self::get_sprite_palette(ppu, palette_index);
             let bank: u16 = ppu.reg_controller.sprite_pattern_table_address();
@@ -131,6 +129,7 @@ impl Frame {
                         0b11 => palette[sprite_palette[3] as usize],
                         _ => panic!("Illegal palette value"),
                     };
+                    // flip horizontal, flip vertical 
                     match (attributes >> 6 & 0x01, attributes >> 7 & 0x01) {
                         (0, 0) => frame.set_pixel(
                             (tile_x.wrapping_add(x)) as usize,
