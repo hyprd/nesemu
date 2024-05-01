@@ -205,7 +205,11 @@ impl PPU {
                 buffer_data
             }
             0x3000..=0x3EFF => panic!("Illegal memory space access at {}", address),
-            0x3F00..=0x3FFF => todo!("Palette table"),
+            0x3F10 | 0x3F14 | 0x3F18 | 0x3F1C => {
+                let mirror_down = address - 0x10;
+                self.palette_table[(mirror_down - 0x3F00) as usize]
+            }
+            0x3F00..=0x3FFF => self.palette_table[(address - 0x3F00) as usize],
             _ => panic!("Illegal access of mirrored space = {}", address),
         }
     }
