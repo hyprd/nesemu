@@ -131,7 +131,7 @@ impl Frame {
                         0b11 => palette[sprite_palette[3] as usize],
                         _ => panic!("Illegal palette value"),
                     };
-                    match (attributes >> 7 & 0x01, attributes >> 6 & 0x01) {
+                    match (attributes >> 6 & 0x01, attributes >> 7 & 0x01) {
                         (0, 0) => frame.set_pixel(
                             (tile_x + x) as usize,
                             (tile_y + y as u8) as usize,
@@ -149,7 +149,7 @@ impl Frame {
                         ),
                         (1, 1) => frame.set_pixel(
                             (tile_x + 7 - x) as usize,
-                            (tile_y + 7 + y as u8) as usize,
+                            (tile_y + 7 - y as u8) as usize,
                             colour,
                         ),
                         (_, _) => {}
