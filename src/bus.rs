@@ -2,6 +2,7 @@
 
 use crate::cartridge::ROM;
 use crate::cpu::Memory;
+use crate::joypad::Joypad;
 use crate::ppu::PPU;
 
 const RAM_ADDRESS_SPACE_START: u16 = 0x0000;
@@ -16,13 +17,14 @@ pub struct Bus<'call> {
     rom: Vec<u8>,
     ppu: PPU,
     cycles: usize,
-    callback: Box<dyn FnMut(&PPU) + 'call>,
+    callback: Box<dyn FnMut(&PPU, &mut Joypad) + 'call>,
+    joypad: Joypad,
 }
 
 impl<'a> Bus<'a> {
     pub fn new<'call, F>(rom: ROM, callback: F) -> Bus<'call>
     where
-        F: FnMut(&PPU) + 'call,
+        F: FnMut(&PPU, &mut Joypad) + 'call,
     {
         let ppu = PPU::new(rom.rom_chr, rom.mirroring_type);
         Bus {
@@ -31,6 +33,7 @@ impl<'a> Bus<'a> {
             ppu,
             cycles: 0,
             callback: Box::from(callback),
+            joypad: Joypad::new(),
         }
     }
 
@@ -40,7 +43,7 @@ impl<'a> Bus<'a> {
         // the CPu starts to render a new frame.
         let new_frame = self.ppu.tick(cycles * 3);
         if new_frame {
-            (self.callback)(&self.ppu);
+            (self.callback)(&self.ppu, &mut self.joypad);
         }
     }
 
@@ -78,7 +81,8 @@ impl Memory for Bus<'_> {
                 let mirror_down = addr & 0x2007;
                 self.mem_read(mirror_down)
             }
-            0x4000..=0x4017 => 0,
+            0x4016 => self.joypad.read(),
+            0x4000..=0x4015 | 0x4017 => 0,
             PRG_ADDRESS_SPACE_START..=PRG_ADDRESS_SPACE_END => self.read_prg_rom(addr),
             _ => {
                 println!("Memory access at {:#04X?} ignored", addr);
@@ -116,7 +120,7 @@ impl Memory for Bus<'_> {
             0x2007 => {
                 self.ppu.write_data(value);
             }
-            0x4000..=0x4013 | 0x4015 | 0x4016 | 0x4017 => {}
+            0x4000..=0x4013 | 0x4015 | 0x4017 => {}
             0x4014 => {
                 // OAMDMA
                 // Writing anyhting to this register sends 0xNN00 -> 0xNNFF to
@@ -124,20 +128,15 @@ impl Memory for Bus<'_> {
                 //
                 // This should only occur within VBLANK because OAM DRAM decays
                 // when rendering is disabled.
-                // let mut buf: Vec<u8> = vec![];
-                // let hh: u16 = (value as u16) << 8;
-                // for i in 0..256 {
-                //     buf.push(self.mem_read(hh + i));
-                // }
-                // println!("BOOOGOERS {:?}", buf);
-                // self.ppu.write_to_oam_dma(buf);
                 let mut buffer: [u8; 256] = [0; 256];
                 let hi: u16 = (value as u16) << 8;
                 for i in 0..256u16 {
                     buffer[i as usize] = self.mem_read(hi + i);
                 }
                 self.ppu.write_to_oam_dma(&buffer);
-
+            }
+            0x4016 => {
+                self.joypad.write(value);
             }
             PPU_ADDRESS_SPACE_START..=PPU_ADDRESS_SPACE_END => {
                 let mirror_down = addr & 0x2007;
@@ -152,5 +151,3 @@ impl Memory for Bus<'_> {
         }
     }
 }
-
-

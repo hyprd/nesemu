@@ -2,9 +2,9 @@
 mod bus;
 mod cartridge;
 mod cpu;
+mod joypad;
 mod opcodes;
 mod ppu;
-mod joypad;
 
 use bus::Bus;
 use cartridge::MirroringType;
@@ -19,6 +19,7 @@ use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
 use sdl2::pixels::PixelFormatEnum;
 use sdl2::EventPump;
+use std::collections::HashMap;
 
 #[macro_use]
 extern crate lazy_static;
@@ -116,7 +117,18 @@ fn main() {
     let rom = ROM::new(&bytes).unwrap();
 
     let mut frame = Frame::new();
-    let bus = Bus::new(rom, move |ppu: &PPU| {
+
+    let mut keymap = HashMap::new();
+    keymap.insert(Keycode::Down, joypad::JoypadButton::DOWN);
+    keymap.insert(Keycode::Up, joypad::JoypadButton::UP);
+    keymap.insert(Keycode::Right, joypad::JoypadButton::RIGHT);
+    keymap.insert(Keycode::Left, joypad::JoypadButton::LEFT);
+    keymap.insert(Keycode::Space, joypad::JoypadButton::SELECT);
+    keymap.insert(Keycode::Return, joypad::JoypadButton::START);
+    keymap.insert(Keycode::A, joypad::JoypadButton::A);
+    keymap.insert(Keycode::S, joypad::JoypadButton::B);
+
+    let bus = Bus::new(rom, move |ppu: &PPU, joypad: &mut joypad::Joypad| {
         let palette = Frame::read_palette_from_file("palettes/nes.hex");
         Frame::render(ppu, &mut frame, palette);
         texture.update(None, &frame.frame_data, 256 * 3).unwrap();
@@ -129,6 +141,16 @@ fn main() {
                     keycode: Some(Keycode::Escape),
                     ..
                 } => std::process::exit(0),
+                Event::KeyDown { keycode, .. } => {
+                    if let Some(key) = keymap.get(&keycode.unwrap_or(Keycode::Ampersand)) {
+                        joypad.set_pressed(*key, true);
+                    }
+                }
+                Event::KeyUp { keycode, .. } => {
+                    if let Some(key) = keymap.get(&keycode.unwrap_or(Keycode::Ampersand)) {
+                        joypad.set_pressed(*key, false);
+                    }
+                }
                 _ => {}
             }
         }
