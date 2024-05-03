@@ -8,6 +8,19 @@ pub struct Frame {
     pub frame_data: Vec<u8>,
 }
 
+struct Rectangle {
+    x_1: usize,
+    y_1: usize,
+    x_2: usize,
+    y_2: usize,
+}
+
+impl Rectangle {
+    fn new(x_1: usize, y_1: usize, x_2: usize, y_2: usize) -> Self {
+        Rectangle { x_1, y_1, x_2, y_2 }
+    }
+}
+
 impl Frame {
     pub fn new() -> Self {
         Frame {
@@ -129,7 +142,7 @@ impl Frame {
                         0b11 => palette[sprite_palette[3] as usize],
                         _ => panic!("Illegal palette value"),
                     };
-                    // flip horizontal, flip vertical 
+                    // flip horizontal, flip vertical
                     match (attributes >> 6 & 0x01, attributes >> 7 & 0x01) {
                         (0, 0) => frame.set_pixel(
                             (tile_x.wrapping_add(x)) as usize,
