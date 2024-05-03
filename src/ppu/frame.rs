@@ -1,4 +1,4 @@
-use crate::ppu::PPU;
+use crate::{cartridge::MirroringType, ppu::PPU};
 use rand::Rng;
 
 const WIDTH: usize = 256;
@@ -89,7 +89,7 @@ impl Frame {
 
     fn render_nametable(
         ppu: &PPU,
-        frame: &Frame,
+        frame: &mut Frame,
         nametable: &[u8],
         viewport: Rectangle,
         palette: Vec<(u8, u8, u8)>,
@@ -97,7 +97,7 @@ impl Frame {
         s_y: isize,
     ) {
         let bank = ppu.reg_controller.background_pattern_table_address();
-        let attribute_table = &nametable[0x3C0..0x400];
+        let attribute_table = &nametable[0x3C0.. 0x400];
 
         for i in 0..0x3C0 {
             let col = i % 32;
@@ -141,31 +141,86 @@ impl Frame {
     }
 
     pub fn render(ppu: &PPU, frame: &mut Frame, palette: Vec<(u8, u8, u8)>) {
-        let bank = ppu.reg_controller.background_pattern_table_address();
-        for i in 0..0x3C0 {
-            let tile = ppu.vram[i] as u16;
-            let col = i % 32;
-            let row = i / 32;
-            let tile_data =
-                &ppu.chr_rom[(bank + tile * 16) as usize..=(bank + tile * 16 + 15) as usize];
-            let background_palette = Self::get_background_palette(ppu, row, col);
-            for y in 0..=7 {
-                let mut hh = tile_data[y];
-                let mut ll = tile_data[y + 8];
-                for x in (0..=7).rev() {
-                    let value = (1 & ll) << 1 | (0x01 & hh);
-                    ll >>= 1;
-                    hh >>= 1;
-                    let colour = match value {
-                        0b00 => palette[ppu.palette_table[0] as usize],
-                        0b01 => palette[background_palette[1] as usize],
-                        0b10 => palette[background_palette[2] as usize],
-                        0b11 => palette[background_palette[3] as usize],
-                        _ => panic!("Couldn't set BG palette colour"),
-                    };
-                    frame.set_pixel(col * 8 + x, row * 8 + y, colour);
+        // let bank = ppu.reg_controller.background_pattern_table_address();
+        // for i in 0..0x3C0 {
+        //     let tile = ppu.vram[i] as u16;
+        //     let col = i % 32;
+        //     let row = i / 32;
+        //     let tile_data =
+        //         &ppu.chr_rom[(bank + tile * 16) as usize..=(bank + tile * 16 + 15) as usize];
+        //     let background_palette = Self::get_background_palette(ppu, row, col);
+        //     for y in 0..=7 {
+        //         let mut hh = tile_data[y];
+        //         let mut ll = tile_data[y + 8];
+        //         for x in (0..=7).rev() {
+        //             let value = (1 & ll) << 1 | (0x01 & hh);
+        //             ll >>= 1;
+        //             hh >>= 1;
+        //             let colour = match value {
+        //                 0b00 => palette[ppu.palette_table[0] as usize],
+        //                 0b01 => palette[background_palette[1] as usize],
+        //                 0b10 => palette[background_palette[2] as usize],
+        //                 0b11 => palette[background_palette[3] as usize],
+        //                 _ => panic!("Couldn't set BG palette colour"),
+        //             };
+        //             frame.set_pixel(col * 8 + x, row * 8 + y, colour);
+        //         }
+        //     }
+        // }
+        //
+        let scx = ppu.reg_scroll.scx as usize;
+        let scy = ppu.reg_scroll.scy as usize;
+
+        let (primary_nametable, secondary_nametable) =
+            match (ppu.mirroring, ppu.reg_controller.nametable_address()) {
+                (MirroringType::Vertical, 0x2000)
+                | (MirroringType::Vertical, 0x2800)
+                | (MirroringType::Horizontal, 0x2000)
+                | (MirroringType::Horizontal, 0x2400) => {
+                    (&ppu.vram[0..0x400], &ppu.vram[0x400..0x800])
                 }
-            }
+                (MirroringType::Vertical, 0x2400)
+                | (MirroringType::Vertical, 0x2C00)
+                | (MirroringType::Horizontal, 0x2800)
+                | (MirroringType::Horizontal, 0x2C00) => {
+                    (&ppu.vram[0x400..0x800], &ppu.vram[0..0x400])
+                }
+                (_, _) => {
+                    panic!("Unsupported mirroring type for nametable rendering");
+                }
+            };
+        Self::render_nametable(
+            ppu,
+            frame,
+            primary_nametable,
+            Rectangle::new(scx, scy, 256, 240),
+            palette.clone(),
+            -(scx as isize),
+            -(scy as isize),
+        );
+
+        if scx > 0 {
+            Self::render_nametable(
+                ppu,
+                frame,
+                secondary_nametable,
+                Rectangle::new(0, 0, scx, 240),
+                palette.clone(),
+                (256 - scx) as isize,
+                0,
+            )
+        }
+
+        if scx > 0 {
+            Self::render_nametable(
+                ppu,
+                frame,
+                secondary_nametable,
+                Rectangle::new(0, 0, scx, 240),
+                palette.clone(),
+                0,
+                (240 - scy) as isize,
+            )
         }
 
         // // Iterate throguh OAM data

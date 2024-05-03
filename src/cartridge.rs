@@ -3,6 +3,7 @@ const NES_IDENTIFIER_TAG: [u8; 4] = [0x4E, 0x45, 0x53, 0x1A];
 const ROM_BANK_SIZE: usize = 16384;
 const VROM_BANK_SIZE: usize = 8192;
 
+#[derive(Copy, Clone)]
 pub enum MirroringType {
     Vertical,
     Horizontal,
@@ -90,7 +91,9 @@ pub mod test {
     pub fn test_rom() -> ROM {
         let test_rom = create(TestROM {
             nes_header: vec![
-                0x4E, 0x45, 0x53, 0x1A, 0x02, 0x01, 0x31, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00],
+                0x4E, 0x45, 0x53, 0x1A, 0x02, 0x01, 0x31, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00,
+            ],
             trainer: None,
             prg_rom: vec![1; 2 * ROM_BANK_SIZE],
             chr_rom: vec![1; 2 * VROM_BANK_SIZE],
