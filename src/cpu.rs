@@ -238,7 +238,7 @@ impl<'a> CPU<'a> {
             }
             callback(self);
             let opcode = self.mem_read(self.reg_pc);
-            self.reg_pc += 1;
+            self.reg_pc = self.reg_pc.wrapping_add(1);
             let instruction = jmp_table.get(&opcode).unwrap();
             let pc_snapshot = self.reg_pc;
             match opcode {

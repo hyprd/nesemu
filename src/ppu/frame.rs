@@ -110,7 +110,7 @@ impl Frame {
             let tile_index = nametable[i] as u16;
             let tile = &ppu.chr_rom
                 [(bank + tile_index * 16) as usize..=(bank + tile_index * 16 + 15) as usize];
-            let bg_palette = Self::get_background_palette(ppu, attribute_table, col, row);
+            let bg_palette = Self::get_background_palette(ppu, attribute_table, row, col);
 
             for y in 0..=7 {
                 let mut hh = tile[y];
@@ -146,36 +146,8 @@ impl Frame {
     }
 
     pub fn render(ppu: &PPU, frame: &mut Frame, palette: Vec<(u8, u8, u8)>) {
-        // let bank = ppu.reg_controller.background_pattern_table_address();
-        // for i in 0..0x3C0 {
-        //     let tile = ppu.vram[i] as u16;
-        //     let col = i % 32;
-        //     let row = i / 32;
-        //     let tile_data =
-        //         &ppu.chr_rom[(bank + tile * 16) as usize..=(bank + tile * 16 + 15) as usize];
-        //     let background_palette = Self::get_background_palette(ppu, row, col);
-        //     for y in 0..=7 {
-        //         let mut hh = tile_data[y];
-        //         let mut ll = tile_data[y + 8];
-        //         for x in (0..=7).rev() {
-        //             let value = (1 & ll) << 1 | (0x01 & hh);
-        //             ll >>= 1;
-        //             hh >>= 1;
-        //             let colour = match value {
-        //                 0b00 => palette[ppu.palette_table[0] as usize],
-        //                 0b01 => palette[background_palette[1] as usize],
-        //                 0b10 => palette[background_palette[2] as usize],
-        //                 0b11 => palette[background_palette[3] as usize],
-        //                 _ => panic!("Couldn't set BG palette colour"),
-        //             };
-        //             frame.set_pixel(col * 8 + x, row * 8 + y, colour);
-        //         }
-        //     }
-        // }
-        //
         let scx = ppu.reg_scroll.scx as usize;
         let scy = ppu.reg_scroll.scy as usize;
-
         let (primary_nametable, secondary_nametable) =
             match (ppu.mirroring, ppu.reg_controller.nametable_address()) {
                 (MirroringType::Vertical, 0x2000)
