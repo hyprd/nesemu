@@ -76,10 +76,11 @@ impl PPU {
     }
 
     pub fn tick(&mut self, cycles: u8) -> bool {
-        // Since the PPU runs three times faster than the CPU,
-        // any CPU cycles are multiplied by three.
         self.cycles += cycles as usize;     
         if self.cycles >= SCANLINE_PPU_CYCLE_LIMIT {
+            if self.poll_sprite_zero_hit(self.cycles) {
+                self.reg_status.set_sprite_zero_hit(true);
+            }
             // don't set to zero -> eating cycles!
             self.cycles = self.cycles - SCANLINE_PPU_CYCLE_LIMIT;
             self.scanline += 1;
@@ -100,6 +101,12 @@ impl PPU {
             }
         } 
         false
+    }
+
+    pub fn poll_sprite_zero_hit(&self, cycle: usize) -> bool {
+        let x = self.oam_data[3] as usize;
+        let y = self.oam_data[0] as usize;
+        (y == self.scanline as usize) && x <= cycle && self.reg_mask.is_sprite_enabled()
     }
 
     pub fn poll_for_nmi_interrupt(&mut self) -> Option<u8> {
