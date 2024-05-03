@@ -42,11 +42,16 @@ impl Frame {
         palette_vec
     }
 
-    fn get_background_palette(ppu: &PPU, row: usize, col: usize) -> Vec<u8> {
+    fn get_background_palette(
+        ppu: &PPU,
+        attribute_table: &[u8],
+        row: usize,
+        col: usize,
+    ) -> Vec<u8> {
         // https://www.nesdev.org/wiki/PPU_attribute_tables
         let attribute_table_index = row / 4 * 8 + col / 4;
         // Colour palette that exists in nametable..
-        let attribute_byte = ppu.vram[960 + attribute_table_index];
+        let attribute_byte = attribute_table[attribute_table_index];
         let palette_index = match (col % 4 / 2, row % 4 / 2) {
             (0, 0) => attribute_byte & 0b11,
             (1, 0) => (attribute_byte >> 2) & 0b11,
@@ -79,6 +84,59 @@ impl Frame {
             self.frame_data[base] = colour.0;
             self.frame_data[base + 1] = colour.1;
             self.frame_data[base + 2] = colour.2;
+        }
+    }
+
+    fn render_nametable(
+        ppu: &PPU,
+        frame: &Frame,
+        nametable: &[u8],
+        viewport: Rectangle,
+        palette: Vec<(u8, u8, u8)>,
+        s_x: isize,
+        s_y: isize,
+    ) {
+        let bank = ppu.reg_controller.background_pattern_table_address();
+        let attribute_table = &nametable[0x3C0..0x400];
+
+        for i in 0..0x3C0 {
+            let col = i % 32;
+            let row = i / 32;
+            let tile_index = nametable[i] as u16;
+            let tile = &ppu.chr_rom
+                [(bank + tile_index * 16) as usize..=(bank + tile_index * 16 + 15) as usize];
+            let bg_palette = Self::get_background_palette(ppu, attribute_table, col, row);
+
+            for y in 0..=7 {
+                let mut hh = tile[y];
+                let mut ll = tile[y + 8];
+                for x in (0..=7).rev() {
+                    let value = (1 & ll) << 1 | (1 & hh);
+                    hh >>= 1;
+                    ll >>= 1;
+                    let colour = match value {
+                        0 => palette[ppu.palette_table[0] as usize],
+                        1 => palette[bg_palette[1] as usize],
+                        2 => palette[bg_palette[2] as usize],
+                        3 => palette[bg_palette[3] as usize],
+                        _ => panic!("Couldn't set palette table value"),
+                    };
+                    let pixel_x = col * 8 + x;
+                    let pixel_y = row * 8 + y;
+
+                    if pixel_x >= viewport.x_1
+                        && pixel_x < viewport.x_2
+                        && pixel_y >= viewport.y_1
+                        && pixel_y < viewport.y_2
+                    {
+                        frame.set_pixel(
+                            (s_x + pixel_x as isize) as usize,
+                            (s_y + pixel_y as isize) as usize,
+                            colour,
+                        );
+                    }
+                }
+            }
         }
     }
 
