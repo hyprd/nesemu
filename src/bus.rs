@@ -41,8 +41,10 @@ impl<'a> Bus<'a> {
         self.cycles += cycles as usize;
         // Cheat way to render a screen is to read the screen state before
         // the CPu starts to render a new frame.
-        let new_frame = self.ppu.tick(cycles * 3);
-        if new_frame {
+        let nmi_prior = self.ppu.nmi_interrupt.is_some();
+        self.ppu.tick(cycles * 3);
+        let nmi_after = self.ppu.nmi_interrupt.is_some();
+        if !nmi_prior && nmi_after {
             (self.callback)(&self.ppu, &mut self.joypad);
         }
     }

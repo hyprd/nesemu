@@ -16,8 +16,13 @@ struct Rectangle {
 }
 
 impl Rectangle {
-    fn new(x_1: usize, y_1: usize, x_2: usize, y_2: usize) -> Self {
-        Rectangle { x_1, y_1, x_2, y_2 }
+    fn new(x1: usize, y1: usize, x2: usize, y2: usize) -> Self {
+        Rectangle {
+            x_1: x1,
+            y_1: y1,
+            x_2: x2,
+            y_2: y2,
+        }
     }
 }
 
@@ -209,9 +214,7 @@ impl Frame {
                 (256 - scx) as isize,
                 0,
             )
-        }
-
-        if scy > 0 {
+        } else if scy > 0 {
             Self::render_nametable(
                 ppu,
                 frame,
