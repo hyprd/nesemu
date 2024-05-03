@@ -97,7 +97,7 @@ impl Frame {
         s_y: isize,
     ) {
         let bank = ppu.reg_controller.background_pattern_table_address();
-        let attribute_table = &nametable[0x3C0.. 0x400];
+        let attribute_table = &nametable[0x3C0..0x400];
 
         for i in 0..0x3C0 {
             let col = i % 32;
@@ -111,7 +111,7 @@ impl Frame {
                 let mut hh = tile[y];
                 let mut ll = tile[y + 8];
                 for x in (0..=7).rev() {
-                    let value = (1 & ll) << 1 | (1 & hh);
+                    let value = (0x01 & ll) << 1 | (0x01 & hh);
                     hh >>= 1;
                     ll >>= 1;
                     let colour = match value {
@@ -211,12 +211,12 @@ impl Frame {
             )
         }
 
-        if scx > 0 {
+        if scy > 0 {
             Self::render_nametable(
                 ppu,
                 frame,
                 secondary_nametable,
-                Rectangle::new(0, 0, scx, 240),
+                Rectangle::new(0, 0, 256, scy),
                 palette.clone(),
                 0,
                 (240 - scy) as isize,
