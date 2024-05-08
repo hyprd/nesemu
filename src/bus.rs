@@ -1,6 +1,6 @@
 #![allow(warnings)]
 
-use crate::cartridge::ROM;
+use crate::cartridge::Cartridge;
 use crate::cpu::Memory;
 use crate::joypad::Joypad;
 use crate::ppu::PPU;
@@ -22,7 +22,7 @@ pub struct Bus<'call> {
 }
 
 impl<'a> Bus<'a> {
-    pub fn new<'call, F>(rom: ROM, callback: F) -> Bus<'call>
+    pub fn new<'call, F>(rom: Cartridge, callback: F) -> Bus<'call>
     where
         F: FnMut(&PPU, &mut Joypad) + 'call,
     {

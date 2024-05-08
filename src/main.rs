@@ -8,7 +8,7 @@ mod ppu;
 
 use bus::Bus;
 use cartridge::MirroringType;
-use cartridge::ROM;
+use cartridge::Cartridge;
 use cpu::Memory;
 use cpu::CPU;
 use ppu::frame::Frame;
@@ -180,7 +180,7 @@ fn main() {
         .unwrap();
 
     let bytes: Vec<u8> = std::fs::read("roms/mario.nes").unwrap();
-    let rom = ROM::new(&bytes).unwrap();
+    let rom = Cartridge::new(&bytes).unwrap();
 
     let mut frame = Frame::new();
 

@@ -1,4 +1,3 @@
-#![allow(warnings)]
 const NES_IDENTIFIER_TAG: [u8; 4] = [0x4E, 0x45, 0x53, 0x1A];
 const ROM_BANK_SIZE: usize = 16384;
 const VROM_BANK_SIZE: usize = 8192;
@@ -10,15 +9,15 @@ pub enum MirroringType {
     FourScreen,
 }
 
-pub struct ROM {
+pub struct Cartridge {
     pub rom_prg: Vec<u8>,
     pub rom_chr: Vec<u8>,
     pub rom_mapper: u8,
     pub mirroring_type: MirroringType,
 }
 
-impl ROM {
-    pub fn new(binary: &[u8]) -> Result<ROM, String> {
+impl Cartridge {
+    pub fn new(binary: &[u8]) -> Result<Cartridge, String> {
         // Define location of control bytes.
         let control_byte_one = binary[6];
         let control_byte_two = binary[7];
@@ -52,7 +51,7 @@ impl ROM {
             (false, false) => MirroringType::Horizontal,
         };
 
-        Ok(ROM {
+        Ok(Cartridge {
             rom_prg: binary[rom_prg_start..(rom_prg_start + rom_prg_size)].to_vec(),
             rom_chr: binary[rom_chr_start..(rom_chr_start + rom_chr_size)].to_vec(),
             rom_mapper: mapper,
@@ -88,7 +87,7 @@ pub mod test {
         result
     }
 
-    pub fn test_rom() -> ROM {
+    pub fn test_rom() -> Cartridge {
         let test_rom = create(TestROM {
             nes_header: vec![
                 0x4E, 0x45, 0x53, 0x1A, 0x02, 0x01, 0x31, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -98,6 +97,6 @@ pub mod test {
             prg_rom: vec![1; 2 * ROM_BANK_SIZE],
             chr_rom: vec![1; 2 * VROM_BANK_SIZE],
         });
-        ROM::new(&test_rom).unwrap()
+        Cartridge::new(&test_rom).unwrap()
     }
 }
