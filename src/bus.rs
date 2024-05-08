@@ -14,7 +14,7 @@ const PRG_ADDRESS_SPACE_END: u16 = 0xFFFF;
 
 pub struct Bus<'call> {
     vram: [u8; 0x800],
-    rom: Vec<u8>,
+    cart: Vec<u8>,
     ppu: PPU,
     cycles: usize,
     callback: Box<dyn FnMut(&PPU, &mut Joypad) + 'call>,
@@ -22,14 +22,14 @@ pub struct Bus<'call> {
 }
 
 impl<'a> Bus<'a> {
-    pub fn new<'call, F>(rom: Cartridge, callback: F) -> Bus<'call>
+    pub fn new<'call, F>(cart: Cartridge, callback: F) -> Bus<'call>
     where
         F: FnMut(&PPU, &mut Joypad) + 'call,
     {
-        let ppu = PPU::new(rom.rom_chr, rom.mirroring_type);
+        let ppu = PPU::new(cart.rom_chr, cart.mirroring_type);
         Bus {
             vram: [0; 0x800],
-            rom: rom.rom_prg,
+            cart: cart.rom_prg,
             ppu,
             cycles: 0,
             callback: Box::from(callback),
@@ -51,10 +51,10 @@ impl<'a> Bus<'a> {
 
     fn read_prg_rom(&self, mut addr: u16) -> u8 {
         addr -= 0x8000;
-        if self.rom.len() == 0x4000 && addr >= 0x4000 {
+        if self.cart.len() == 0x4000 && addr >= 0x4000 {
             addr = addr % 0x4000;
         }
-        self.rom[addr as usize]
+        self.cart[addr as usize]
     }
 
     pub fn poll_nmi_status(&mut self) -> Option<u8> {

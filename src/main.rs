@@ -5,6 +5,7 @@ mod cpu;
 mod joypad;
 mod opcodes;
 mod ppu;
+mod mapper;
 
 use bus::Bus;
 use cartridge::MirroringType;
