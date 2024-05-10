@@ -28,8 +28,6 @@ impl Cartridge {
         // Get cartridge mapper.
         let mapper_value = control_byte_two & 0b11110000 | control_byte_one >> 4;
 
-        
-
         // Determine whether binary is identifiable as an NES cartridge.
         if (binary[0..4]) != NES_IDENTIFIER_TAG {
             return Err("File is in incorrect format".to_string());
@@ -56,8 +54,7 @@ impl Cartridge {
             (false, false) => MirroringType::Horizontal,
         };
         
-        let map = Mapper::new(MapperType::UXROM, mirroring);
-
+        let map = Mapper::new(MapperType::NROM, mirroring);
         Ok(Cartridge {
             rom_prg: binary[rom_prg_start..(rom_prg_start + rom_prg_size)].to_vec(),
             rom_chr: binary[rom_chr_start..(rom_chr_start + rom_chr_size)].to_vec(),
