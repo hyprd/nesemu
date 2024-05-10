@@ -1,12 +1,15 @@
 # nesemu
 NES emulator written in Rust.
 
-Operational although incomplete feature-wise. It can play Pac-Man and Mario, although the emulation running 2-3x the regular speed makes them kinda hard. 
+It currently only supports games with an NROM mapper (namely Mario and PacMan) with more mapper support to come!.
+
+### Building
+Requires an Rust-SDL2 installation. Windows guide [here](https://github.com/Rust-SDL2/rust-sdl2?tab=readme-ov-file#windows-msvc).
 
 ### Todo
 - Implement APU
 - More precise PPU timing
 - Add the last few illegal opcodes
-- Extend mapper support (allow single/4-screen nametable mirroring)
-- Fix PPU bugs, mainly scrolling errata
+- Extend mapper support
+- Fix PPU bugs, mainly scrolling glitches
 - Probably more!
