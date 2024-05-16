@@ -1,4 +1,6 @@
-use crate::mapper::{Mapper, MapperType};
+use crate::mapper::nrom;
+use crate::mapper::nrom::NROM;
+use crate::mapper::Mapper;
 
 const NES_IDENTIFIER_TAG: [u8; 4] = [0x4E, 0x45, 0x53, 0x1A];
 const ROM_BANK_SIZE: usize = 16384;
@@ -15,7 +17,7 @@ pub struct Cartridge {
     pub rom_prg: Vec<u8>,
     pub rom_chr: Vec<u8>,
     pub mapper_type: u8,
-    pub mapper: Mapper,
+    pub mapper: Box<dyn Mapper>,
     pub mirroring_type: MirroringType,
 }
 
@@ -53,8 +55,16 @@ impl Cartridge {
             (false, true) => MirroringType::Vertical,
             (false, false) => MirroringType::Horizontal,
         };
-        
-        let map = Mapper::new(MapperType::NROM, mirroring);
+
+        let map = match mapper_value {
+            0x00 => {
+                Box::new(NROM::new())
+            }
+            _ => {
+                todo!("Mappers")
+            }
+        };
+
         Ok(Cartridge {
             rom_prg: binary[rom_prg_start..(rom_prg_start + rom_prg_size)].to_vec(),
             rom_chr: binary[rom_chr_start..(rom_chr_start + rom_chr_size)].to_vec(),

@@ -14,7 +14,7 @@ const PRG_ADDRESS_SPACE_END: u16 = 0xFFFF;
 
 pub struct Bus<'call> {
     vram: [u8; 0x800],
-    cart: Vec<u8>,
+    cartridge: Cartridge,
     ppu: PPU,
     cycles: usize,
     callback: Box<dyn FnMut(&PPU, &mut Joypad) + 'call>,
@@ -26,10 +26,10 @@ impl<'a> Bus<'a> {
     where
         F: FnMut(&PPU, &mut Joypad) + 'call,
     {
-        let ppu = PPU::new(cart.rom_chr, cart.mirroring_type);
+        let ppu = PPU::new(cart.rom_chr.clone(), cart.mirroring_type.clone());
         Bus {
             vram: [0; 0x800],
-            cart: cart.rom_prg,
+            cartridge: cart,
             ppu,
             cycles: 0,
             callback: Box::from(callback),
@@ -51,10 +51,10 @@ impl<'a> Bus<'a> {
 
     fn read_prg_rom(&self, mut addr: u16) -> u8 {
         addr -= 0x8000;
-        if self.cart.len() == 0x4000 && addr >= 0x4000 {
+        if self.cartridge.rom_prg.len() == 0x4000 && addr >= 0x4000 {
             addr = addr % 0x4000;
         }
-        self.cart[addr as usize]
+        self.cartridge.rom_prg[addr as usize]
     }
 
     pub fn poll_nmi_status(&mut self) -> Option<u8> {
@@ -145,7 +145,7 @@ impl Memory for Bus<'_> {
                 self.mem_write(mirror_down, value);
             }
             PRG_ADDRESS_SPACE_START..=PRG_ADDRESS_SPACE_END => {
-                panic!("Illegal write to cartridge ROM: {:02x}", addr);
+                self.mem_write(self.cartridge.mapper.map_prg(addr), value);
             }
             _ => {
                 println!("Memory write at {:#04X?} ignored", addr);
