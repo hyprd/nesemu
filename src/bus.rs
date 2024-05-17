@@ -48,15 +48,6 @@ impl<'a> Bus<'a> {
             (self.callback)(&self.ppu, &mut self.joypad);
         }
     }
-
-    fn read_prg_rom(&self, mut addr: u16) -> u8 {
-        addr -= 0x8000;
-        if self.cartridge.rom_prg.len() == 0x4000 && addr >= 0x4000 {
-            addr = addr % 0x4000;
-        }
-        self.cartridge.rom_prg[addr as usize]
-    }
-
     pub fn poll_nmi_status(&mut self) -> Option<u8> {
         self.ppu.nmi_interrupt.take()
     }
@@ -85,7 +76,13 @@ impl Memory for Bus<'_> {
             }
             0x4016 => self.joypad.read(),
             0x4000..=0x4015 | 0x4017 => 0,
-            PRG_ADDRESS_SPACE_START..=PRG_ADDRESS_SPACE_END => self.read_prg_rom(addr),
+            PRG_ADDRESS_SPACE_START..=PRG_ADDRESS_SPACE_END => {
+                let rom_address = self.cartridge.mapper.map_prg(addr);
+                if self.cartridge.rom_prg.len() == 0x4000 && rom_address >= 0x4000 {
+                    return self.cartridge.rom_prg[(rom_address % 0x4000) as usize]
+                }
+                self.cartridge.rom_prg[rom_address as usize]
+            }
             _ => {
                 println!("Memory access at {:#04X?} ignored", addr);
                 0

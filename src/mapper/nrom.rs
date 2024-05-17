@@ -4,9 +4,7 @@ pub struct NROM {}
 
 impl NROM {
     pub fn new() -> Self {
-        NROM {
-
-        }
+        NROM {}
     }
 }
 
@@ -16,5 +14,6 @@ impl Mapper for NROM {
     }
     fn map_chr(&self, address: u16) -> u16 {
         address
-    } 
+    }
+    fn bank_select(&mut self, value: u8) {}
 }

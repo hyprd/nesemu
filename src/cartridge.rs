@@ -1,5 +1,5 @@
-use crate::mapper::nrom;
 use crate::mapper::nrom::NROM;
+use crate::mapper::uxrom;
 use crate::mapper::Mapper;
 
 const NES_IDENTIFIER_TAG: [u8; 4] = [0x4E, 0x45, 0x53, 0x1A];
@@ -58,6 +58,7 @@ impl Cartridge {
 
         let map = match mapper_value {
             0x00 => {
+                println!("Loaded NROM mapper");
                 Box::new(NROM::new())
             }
             _ => {
