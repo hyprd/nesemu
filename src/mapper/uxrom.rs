@@ -2,12 +2,14 @@ use super::Mapper;
 
 pub struct UXROM {
     bank_select_register: u8,
+    prg_banks: u8, 
 }
 
 impl UXROM {
-    pub fn new() -> Self {
+    pub fn new(banks: u8) -> Self {
         UXROM {
             bank_select_register: 0x00,
+            prg_banks: banks,
         }
     }
 }
@@ -22,7 +24,8 @@ impl Mapper for UXROM {
         let bank = match address <= 0xC000 { 
             // If address is in switchable bank address space...
             true => self.bank_select_register,
-            false => 0,
+            // Since 0xC000-0xFFFF is fixed to the last bank, need to sub one.
+            false => self.prg_banks - 1, 
         } as u16;
         let mapped_address = address & 0x3FFF;
         0x4000 * bank + mapped_address
