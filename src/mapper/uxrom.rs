@@ -20,19 +20,19 @@ impl Mapper for UXROM {
     *   0xC000 - 0xFFFF = Fixed PRG ROM
     */
 
-    fn map_prg(&self, address: u16) -> u16 {
+    fn map_prg(&self, address: u16) -> u32 {
         let bank = match address <= 0xC000 { 
             // If address is in switchable bank address space...
             true => self.bank_select_register,
             // Since 0xC000-0xFFFF is fixed to the last bank, need to sub one.
             false => self.prg_banks - 1, 
-        } as u16;
-        let mapped_address = address & 0x3FFF;
-        0x4000 * bank + mapped_address
+        } as u32;
+        let mapped_address = (address & 0x3FFF) as u32;
+        (0x4000 * bank + mapped_address) as u32
     }
 
-    fn map_chr(&self, address: u16) -> u16 {
-        address
+    fn map_chr(&self, address: u16) -> u32 {
+        address as u32
     }
 
     fn bank_select(&mut self, value: u8) {

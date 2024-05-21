@@ -54,6 +54,13 @@ impl<'a> Bus<'a> {
 }
 
 impl Memory for Bus<'_> {
+    fn mem_write_u32(&mut self, addr: u32, value: u8) {
+        if addr <= 0x2000 {
+            self.cartridge.rom_chr[addr as usize] = value;
+        }
+        self.cartridge.rom_prg[addr as usize] = value
+    }
+
     fn mem_read(&mut self, addr: u16) -> u8 {
         match addr {
             RAM_ADDRESS_SPACE_START..=RAM_ADDRESS_SPACE_END => {
@@ -79,7 +86,7 @@ impl Memory for Bus<'_> {
             PRG_ADDRESS_SPACE_START..=PRG_ADDRESS_SPACE_END => {
                 let rom_address = self.cartridge.mapper.map_prg(addr);
                 if self.cartridge.rom_prg.len() == 0x4000 && rom_address >= 0x4000 {
-                    return self.cartridge.rom_prg[(rom_address % 0x4000) as usize]
+                    return self.cartridge.rom_prg[(rom_address % 0x4000) as usize];
                 }
                 self.cartridge.rom_prg[rom_address as usize]
             }
@@ -142,7 +149,7 @@ impl Memory for Bus<'_> {
                 self.mem_write(mirror_down, value);
             }
             PRG_ADDRESS_SPACE_START..=PRG_ADDRESS_SPACE_END => {
-                self.mem_write(self.cartridge.mapper.map_prg(addr), value);
+                self.mem_write_u32(self.cartridge.mapper.map_prg(addr), value);
             }
             _ => {
                 println!("Memory write at {:#04X?} ignored", addr);
